@@ -64,10 +64,10 @@ internal static class NativeTaskbar
     [DllImport("shell32.dll")]
     private static extern uint SHAppBarMessage(int dwMessage, ref APPBARDATA pData);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", EntryPoint = "GetDpiForWindow")]
     private static extern uint GetDpiForWindowPrivate(nint hWnd);
 
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId", SetLastError = true)]
     private static extern uint GetWindowThreadProcessIdPrivate(nint hWnd, out uint lpdwProcessId);
 
     [DllImport("user32.dll", EntryPoint = "ScreenToClient", SetLastError = true)]
