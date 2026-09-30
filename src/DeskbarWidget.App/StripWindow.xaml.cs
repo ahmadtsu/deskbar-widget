@@ -275,6 +275,10 @@ internal partial class StripWindow : Window
         if (bounds is { } b)
         {
             DeskLogger.Info($"placed at {b.Left},{b.Top} {b.Width}x{b.Height} (tiles={tiles})");
+            // Keep the WPF layout size in sync with the native HWND size
+            // (physical px -> DIPs) so tiles are never clipped by the edge.
+            Width = b.Width / dpi;
+            Height = b.Height / dpi;
             _animator.MoveTo(b);
         }
         else

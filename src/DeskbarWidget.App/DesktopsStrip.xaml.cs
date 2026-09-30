@@ -53,6 +53,13 @@ internal partial class DesktopsStrip
             };
             Tiles.Items.Add(btn);
         }
+
+        // No trailing gap after the last tile: content width is N*36-8, so the
+        // native-sized window (N*36 wide) never clips the final tile.
+        if (Tiles.Items[^1] is Button last)
+        {
+            last.Margin = new Thickness(0);
+        }
     }
 
     public void UpdateActive(int current)

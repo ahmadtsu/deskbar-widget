@@ -42,7 +42,7 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-    <ItemsControl x:Name="Tiles" Focusable="False">
+    <ItemsControl x:Name="Tiles" Focusable="False" VerticalAlignment="Center" HorizontalAlignment="Left">
         <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
                 <StackPanel Orientation="Horizontal" />
