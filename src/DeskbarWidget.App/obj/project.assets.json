@@ -1,0 +1,127 @@
+{
+  "version": 3,
+  "targets": {
+    "net9.0-windows7.0": {
+      "DeskbarWidget.Core/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "dependencies": {
+          "DeskbarWidget.Interop": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/DeskbarWidget.Core.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/DeskbarWidget.Core.dll": {}
+        }
+      },
+      "DeskbarWidget.Interop/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "compile": {
+          "bin/placeholder/DeskbarWidget.Interop.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/DeskbarWidget.Interop.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "DeskbarWidget.Core/1.0.0": {
+      "type": "project",
+      "path": "../DeskbarWidget.Core/DeskbarWidget.Core.csproj",
+      "msbuildProject": "../DeskbarWidget.Core/DeskbarWidget.Core.csproj"
+    },
+    "DeskbarWidget.Interop/1.0.0": {
+      "type": "project",
+      "path": "../DeskbarWidget.Interop/DeskbarWidget.Interop.csproj",
+      "msbuildProject": "../DeskbarWidget.Interop/DeskbarWidget.Interop.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net9.0-windows7.0": [
+      "DeskbarWidget.Core >= 1.0.0",
+      "DeskbarWidget.Interop >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\ASUS\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\devlab\\mylab\\deskbar-widget\\deskbar-widget\\src\\DeskbarWidget.App\\DeskbarWidget.App.csproj",
+      "projectName": "DeskbarWidget.App",
+      "projectPath": "C:\\devlab\\mylab\\deskbar-widget\\deskbar-widget\\src\\DeskbarWidget.App\\DeskbarWidget.App.csproj",
+      "packagesPath": "C:\\Users\\ASUS\\.nuget\\packages\\",
+      "outputPath": "C:\\devlab\\mylab\\deskbar-widget\\deskbar-widget\\src\\DeskbarWidget.App\\obj\\",
+      "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
+      "configFilePaths": [
+        "C:\\Users\\ASUS\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+      ],
+      "originalTargetFrameworks": [
+        "net9.0-windows"
+      ],
+      "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net9.0-windows7.0": {
+          "targetAlias": "net9.0-windows",
+          "projectReferences": {
+            "C:\\devlab\\mylab\\deskbar-widget\\deskbar-widget\\src\\DeskbarWidget.Core\\DeskbarWidget.Core.csproj": {
+              "projectPath": "C:\\devlab\\mylab\\deskbar-widget\\deskbar-widget\\src\\DeskbarWidget.Core\\DeskbarWidget.Core.csproj"
+            },
+            "C:\\devlab\\mylab\\deskbar-widget\\deskbar-widget\\src\\DeskbarWidget.Interop\\DeskbarWidget.Interop.csproj": {
+              "projectPath": "C:\\devlab\\mylab\\deskbar-widget\\deskbar-widget\\src\\DeskbarWidget.Interop\\DeskbarWidget.Interop.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.200"
+    },
+    "frameworks": {
+      "net9.0-windows7.0": {
+        "targetAlias": "net9.0-windows",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          },
+          "Microsoft.WindowsDesktop.App.WPF": {
+            "privateAssets": "none"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.200/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}
