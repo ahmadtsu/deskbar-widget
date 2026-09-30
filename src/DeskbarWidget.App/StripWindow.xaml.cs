@@ -262,8 +262,14 @@ internal partial class StripWindow : Window
 
         if (!layout.IsMeasurable)
         {
+            DeskLogger.Info("probe: nothing measurable yet");
             return;
         }
+
+        DeskLogger.Info(
+            $"probe: align={alignment} centered={centerAligned} dpi={dpi:F2} " +
+            $"taskbar={taskbarRect} cluster={Fmt(layout.IconCluster)} " +
+            $"obstacles={layout.Obstacles.Count} tiles={tiles}");
 
         var bounds = StripBounds.Calculate(handle, taskbarRect, layout, dpi, alignment, centerAligned, tiles);
         if (bounds is { } b)
@@ -277,6 +283,9 @@ internal partial class StripWindow : Window
             _animator.Hide();
         }
     }
+
+    private static string Fmt(Rect? r) =>
+        r is { } v ? $"{v.Left:F0},{v.Top:F0} {v.Width:F0}x{v.Height:F0}" : "none";
 
     private static bool IsTaskbarCenterAligned()
     {

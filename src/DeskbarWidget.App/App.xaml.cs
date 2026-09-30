@@ -41,9 +41,11 @@ public partial class App : Application
 
         base.OnStartup(e);
 
-        var alignment = args.FirstOrDefault(a => a.StartsWith("--align="))?.Split('=')[1] == "left"
-            ? "Left"
-            : "Right";
+        // Default home is the left corner (left of the centered cluster);
+        // pass --align=right to dock by the tray instead.
+        var alignment = args.FirstOrDefault(a => a.StartsWith("--align="))?.Split('=')[1] == "right"
+            ? "Right"
+            : "Left";
 
         _service = new VirtualDesktopService();
         _watcher = new ThemeWatcher();
