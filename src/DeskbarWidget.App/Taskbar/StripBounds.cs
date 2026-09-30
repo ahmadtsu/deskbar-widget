@@ -34,6 +34,7 @@ internal static class StripBounds
     /// <param name="alignment">"Left" or "Right". "Left" only applies on a centered taskbar.</param>
     /// <param name="centerAligned">Whether the taskbar is center-aligned.</param>
     /// <param name="tileCount">Number of tiles; desired width is tileCount * 36dip * scale.</param>
+    /// <param name="desiredWidthPx">Measured content width in px (0 = use tile-count formula).</param>
     public static WidgetBounds? Calculate(
         nint taskbarHandle,
         Rect taskbarRectPx,
@@ -41,7 +42,8 @@ internal static class StripBounds
         double dpiScale,
         string alignment,
         bool centerAligned,
-        int tileCount)
+        int tileCount,
+        double desiredWidthPx = 0)
     {
         if (tileCount <= 0 || dpiScale <= 0)
         {
@@ -93,7 +95,13 @@ internal static class StripBounds
         }
 
         int height = CalculateStripHeight(taskbarHeight, dpiScale);
-        int desiredWidth = (int)Math.Round(tileCount * TilePitchDip * dpiScale);
+
+        // Width comes from the measured WPF content (DIPs -> px), not from a
+        // tile-count formula, so the HWND can never clip the rendered tiles.
+        // Falls back to the formula when content hasn't been measured yet.
+        int desiredWidth = desiredWidthPx > 0
+            ? Math.Min((int)Math.Ceiling(desiredWidthPx), available)
+            : (int)Math.Round(tileCount * TilePitchDip * dpiScale);
         if (desiredWidth <= 0)
         {
             return null;

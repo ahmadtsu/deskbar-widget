@@ -271,10 +271,19 @@ internal partial class StripWindow : Window
             $"taskbar={taskbarRect} cluster={Fmt(layout.IconCluster)} " +
             $"obstacles={layout.Obstacles.Count} tiles={tiles}");
 
-        var bounds = StripBounds.Calculate(handle, taskbarRect, layout, dpi, alignment, centerAligned, tiles);
+        // Measure the rendered content so the HWND is sized to what WPF draws
+        // (plus 1px slack), never the other way around.
+        Strip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var contentPx = Strip.DesiredSize.Width * dpi;
+
+        var bounds = StripBounds.Calculate(handle, taskbarRect, layout, dpi, alignment, centerAligned, tiles, contentPx + dpi);
         if (bounds is { } b)
         {
-            DeskLogger.Info($"placed at {b.Left},{b.Top} {b.Width}x{b.Height} (tiles={tiles})");
+            NativeTaskbar.GetWindowRect(_handle, out var hr);
+            DeskLogger.Info(
+                $"placed at {b.Left},{b.Top} {b.Width}x{b.Height} " +
+                $"(tiles={tiles} content={contentPx:F1}px win={ActualWidth:F1}x{ActualHeight:F1} " +
+                $"hwnd={hr.Right - hr.Left}x{hr.Bottom - hr.Top})");
             // Keep the WPF layout size in sync with the native HWND size
             // (physical px -> DIPs) so tiles are never clipped by the edge.
             Width = b.Width / dpi;

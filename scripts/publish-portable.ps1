@@ -9,4 +9,5 @@ dotnet publish "$root/src/DeskbarWidget.App/DeskbarWidget.App.csproj" `
     -c Release -r win-x64 --self-contained false `
     /p:PublishSingleFile=true `
     -o "$root/publish"
-Write-Output "Published to $root/publish/DeskbarWidget.App.exe"
+Copy-Item "$root/publish/DeskbarWidget.App.exe" "$root/publish/DeskbarWidget.exe" -Force
+Write-Output "Published to $root/publish/DeskbarWidget.exe"
