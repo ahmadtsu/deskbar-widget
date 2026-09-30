@@ -128,7 +128,10 @@ internal partial class StripWindow : Window
     {
         if (!CanDock())
         {
-            DeskLogger.Info("TryDock: not dockable (old Windows or classic taskbar)");
+            DeskLogger.Info(
+                $"TryDock: not dockable (build={Environment.OSVersion.Version.Build} " +
+                $"classic={NativeTaskbar.IsClassicTaskbar()} " +
+                $"tray=0x{NativeTaskbar.FindTaskbarHandle():X})");
             ScheduleRetryOrFallback();
             return;
         }
