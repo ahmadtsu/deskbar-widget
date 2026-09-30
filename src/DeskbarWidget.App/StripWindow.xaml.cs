@@ -91,10 +91,25 @@ internal partial class StripWindow : Window
             UpdatePosition(refresh);
         };
 
-        Loaded += (_, _) => UpdatePosition();
+        Loaded += (_, _) =>
+        {
+            Strip.RefreshActiveWidths();
+            UpdatePosition();
+        };
         Closed += (_, _) => Cleanup();
 
-        _service.DesktopChanged += (_, index) => Dispatcher.BeginInvoke(() => Strip.UpdateActive(index));
+        _service.DesktopChanged += (_, index) => Dispatcher.BeginInvoke(() =>
+        {
+            Strip.UpdateActive(index);
+            // The active pill grows over ~200ms; re-fit the window once done.
+            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            t.Tick += (_, _) =>
+            {
+                t.Stop();
+                UpdatePosition();
+            };
+            t.Start();
+        });
         _service.DesktopsUpdated += (_, e) => Dispatcher.BeginInvoke(() =>
         {
             Strip.Rebuild(_service.GetDesktops(), e.Index);
@@ -115,10 +130,11 @@ internal partial class StripWindow : Window
         // This also fires OnSourceInitialized (animator + taskbar hook setup).
         _ = new WindowInteropHelper(this).EnsureHandle();
 
-        Strip.Attach(_service);
+        // Theme first: tile measuring reads theme font tokens.
         var theme = _watcher.Current;
-        DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}, light={theme.IsLight} accent=#{theme.Accent.R:X2}{theme.Accent.G:X2}{theme.Accent.B:X2}");
         TileTheme.ApplyTo(Strip, theme);
+        Strip.Attach(_service);
+        DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}, light={theme.IsLight} accent=#{theme.Accent.R:X2}{theme.Accent.G:X2}{theme.Accent.B:X2}");
         TryDock();
     }
 

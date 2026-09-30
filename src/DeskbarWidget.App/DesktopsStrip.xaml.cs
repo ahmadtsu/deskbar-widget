@@ -1,17 +1,29 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using DeskbarWidget.Core;
 
 namespace DeskbarWidget.App;
 
 /// <summary>
-/// Horizontal row of squircle number tiles. Code-behind driven (no MVVM
-/// package): Rebuild on DesktopsUpdated, UpdateActive on DesktopChanged.
-/// Active tile is flagged via TileButton.IsActive (see TileButtonStyle trigger).
+/// Horizontal row of squircle tiles, YASB-style: inactive tiles show the
+/// desktop number at fixed 28px; the active tile grows into an accent pill
+/// showing the desktop name (label_workspace_active_btn behavior). Width
+/// changes glide with a 200ms animation; the taskbar window re-measures
+/// content so it always fits.
 /// </summary>
 internal partial class DesktopsStrip
 {
+    private const double InactiveWidth = 28;
+    private const double MaxActiveWidth = 160;
+    private const double ActiveHorizontalPadding = 20;
+
+    private static readonly Duration GrowDuration = new(TimeSpan.FromMilliseconds(200));
+
     private VirtualDesktopService? _service;
+    private readonly Dictionary<int, string> _names = new();
 
     public DesktopsStrip()
     {
@@ -23,20 +35,27 @@ internal partial class DesktopsStrip
     public void Attach(VirtualDesktopService service)
     {
         _service = service;
-        Rebuild(service.GetDesktops(), service.GetCurrentDesktop().Number);
+        var desktops = service.GetDesktops();
+        Rebuild(desktops, service.GetCurrentDesktop().Number);
     }
 
     public void Rebuild(IReadOnlyList<DesktopInfo> desktops, int current)
     {
         Tiles.Items.Clear();
+        _names.Clear();
         var style = (Style)Resources["TileButtonStyle"];
         foreach (var d in desktops)
         {
+            var name = string.IsNullOrWhiteSpace(d.Name) ? d.Number.ToString() : d.Name;
+            _names[d.Number] = name;
+            var active = d.Number == current;
             var btn = new TileButton
             {
                 Style = style,
-                Content = d.Number.ToString(),
-                IsActive = d.Number == current,
+                Content = MakeLabel(active ? name : d.Number.ToString()),
+                IsActive = active,
+                Width = active ? ActiveWidth(name) : InactiveWidth,
+                Tag = d.Number,
                 ToolTip = string.IsNullOrWhiteSpace(d.Name) ? $"Desktop {d.Number}" : d.Name,
             };
             var number = d.Number;
@@ -66,10 +85,91 @@ internal partial class DesktopsStrip
     {
         foreach (var item in Tiles.Items)
         {
-            if (item is TileButton btn && int.TryParse(btn.Content?.ToString(), out var n))
+            if (item is not TileButton { Tag: int number } btn)
             {
-                btn.IsActive = n == current;
+                continue;
+            }
+
+            var isActive = number == current;
+            if (btn.IsActive == isActive)
+            {
+                continue;
+            }
+
+            var label = isActive && _names.TryGetValue(number, out var name) ? name : number.ToString();
+            btn.Content = MakeLabel(label);
+            btn.IsActive = isActive;
+            AnimateWidth(btn, isActive ? ActiveWidth(label) : InactiveWidth);
+        }
+    }
+
+    /// <summary>
+    /// Re-measure active pills once connected (correct DPI/font tokens).
+    /// Called on window Loaded after the initial blind build.
+    /// </summary>
+    public void RefreshActiveWidths()
+    {
+        foreach (var item in Tiles.Items)
+        {
+            if (item is not TileButton { Tag: int number, IsActive: true } btn)
+            {
+                continue;
+            }
+
+            if (_names.TryGetValue(number, out var name))
+            {
+                btn.Content = MakeLabel(name);
+                btn.BeginAnimation(WidthProperty, null);
+                btn.Width = ActiveWidth(name);
             }
         }
+    }
+
+    private static TextBlock MakeLabel(string text) => new()
+    {
+        Text = text,
+        MaxWidth = MaxActiveWidth - ActiveHorizontalPadding,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private double ActiveWidth(string label)
+    {
+        // Theme dictionaries may not be merged yet on first build; fall back
+        // to matching literals rather than crashing (see Initialize order).
+        var family = Resources["TileFontFamily"] as FontFamily ?? new FontFamily("Segoe UI Variable Text");
+        var size = Resources["TileFontSize"] is double s ? s : 12.0;
+        var weight = Resources["TileFontWeight"] is FontWeight w ? w : FontWeights.SemiBold;
+        double pixelsPerDip = 1.0;
+        try
+        {
+            pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        }
+        catch
+        {
+            // Not connected to a presentation source yet; fixed up on Loaded.
+        }
+
+        var typeface = new Typeface(family, FontStyles.Normal, weight, FontStretches.Normal);
+        var text = new FormattedText(
+            label,
+            CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            typeface,
+            size,
+            Brushes.Black,
+            pixelsPerDip);
+        return Math.Clamp(text.Width + ActiveHorizontalPadding, InactiveWidth, MaxActiveWidth);
+    }
+
+    private static void AnimateWidth(TileButton btn, double to)
+    {
+        btn.BeginAnimation(
+            WidthProperty,
+            new DoubleAnimation(btn.ActualWidth, to, GrowDuration)
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            });
     }
 }
