@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using DeskbarWidget.App.Themes;
 using DeskbarWidget.Core;
 using Microsoft.Win32;
@@ -41,6 +41,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
         base.OnStartup(e);
 
         // Single instance: a second launch would double every tile and fight
@@ -105,6 +106,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        DeskLogger.Info($"OnExit code={e.ApplicationExitCode}");
         _tray?.Dispose();
         _service?.Dispose();
         _watcher?.Dispose();

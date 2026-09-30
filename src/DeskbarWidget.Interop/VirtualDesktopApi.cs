@@ -235,6 +235,63 @@ public sealed class VirtualDesktopApi
         }
     }
 
+    /// <summary>
+    /// Rename a desktop (YASB com.rename).
+    /// </summary>
+    public void Rename(Guid guid, string name)
+    {
+        var s = Ensure();
+        using var hName = new NativeHString.Owned(name);
+
+        switch (s.Tier)
+        {
+            case VirtualDesktopTiers.V26100:
+            {
+                var m = s.Manager26100!;
+                var g = guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var d), "FindDesktop");
+                ThrowIfFailed(m.SetName(d, hName.Handle), "SetName");
+                break;
+            }
+            case VirtualDesktopTiers.V22631:
+            {
+                var m = s.Manager22631!;
+                var g = guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var d), "FindDesktop");
+                ThrowIfFailed(m.SetName(d, hName.Handle), "SetName");
+                break;
+            }
+            case VirtualDesktopTiers.V22621:
+            {
+                var m = s.Manager22621!;
+                var g = guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var d), "FindDesktop");
+                ThrowIfFailed(m.SetName(d, hName.Handle), "SetName");
+                break;
+            }
+            case VirtualDesktopTiers.V22449:
+            case VirtualDesktopTiers.V21313:
+            {
+                var m = s.Manager21313!;
+                var g = guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var d), "FindDesktop");
+                ThrowIfFailed(m.SetName(d, hName.Handle), "SetName");
+                break;
+            }
+            default:
+            {
+                if (s.ManagerInternal2 is null)
+                {
+                    throw new VirtualDesktopException("Renaming desktops is not supported on this Windows build.");
+                }
+                var g = guid;
+                ThrowIfFailed(s.ManagerWin10!.FindDesktop(ref g, out var d), "FindDesktop");
+                ThrowIfFailed(s.ManagerInternal2.SetName(d, hName.Handle), "SetName");
+                break;
+            }
+        }
+    }
+
     internal IVirtualDesktopNotificationService NotificationService()
     {
         var provider = CreateProvider();
@@ -573,6 +630,15 @@ public sealed class VirtualDesktopApi
                     break;
                 }
             }
+
+            if (tier < VirtualDesktopTiers.V21313)
+            {
+                var iid2 = VirtualDesktopGuids.IID_IVirtualDesktopManagerInternal2;
+                if (provider.QueryService(ref svc, ref iid2, out var p2) == 0 && p2 != IntPtr.Zero)
+                {
+                    s.ManagerInternal2 = (IManagerInternal2)Marshal.GetObjectForIUnknown(p2);
+                }
+            }
         }
         finally
         {
@@ -614,5 +680,6 @@ public sealed class VirtualDesktopApi
         public IManager21313Family? Manager21313;
         public IManager20231? Manager20231;
         public IManagerWin10? ManagerWin10;
+        public IManagerInternal2? ManagerInternal2;
     }
 }

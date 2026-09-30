@@ -11,6 +11,7 @@ public interface IDesktopReader
     Guid Current();
     void SwitchTo(Guid guid);
     void Remove(Guid guid);
+    void Rename(Guid guid, string name);
 }
 
 public sealed class VirtualDesktopApiAdapter(VirtualDesktopApi api) : IDesktopReader
@@ -19,4 +20,5 @@ public sealed class VirtualDesktopApiAdapter(VirtualDesktopApi api) : IDesktopRe
     public Guid Current() => api.CurrentGuid();
     public void SwitchTo(Guid guid) => api.SwitchTo(guid);
     public void Remove(Guid guid) => api.Remove(guid);
+    public void Rename(Guid guid, string name) => api.Rename(guid, name);
 }
