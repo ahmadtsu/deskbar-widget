@@ -71,10 +71,22 @@ internal sealed class TrayIcon : IDisposable
     {
         try
         {
-            var uri = new Uri("pack://application:,,,/eyes.ico", UriKind.Absolute);
+            var uri = new Uri("pack://application:,,,/DeskbarWidget.App;component/eyes.ico", UriKind.Absolute);
             var stream = System.Windows.Application.GetResourceStream(uri)?.Stream;
             if (stream is null)
             {
+                var fallbackUri = new Uri("pack://application:,,,/eyes.ico", UriKind.Absolute);
+                stream = System.Windows.Application.GetResourceStream(fallbackUri)?.Stream;
+            }
+
+            if (stream is null)
+            {
+                var filePath = System.IO.Path.Combine(AppContext.BaseDirectory, "eyes.ico");
+                if (System.IO.File.Exists(filePath))
+                {
+                    return new Icon(filePath);
+                }
+
                 DeskLogger.Info("tray: eyes.ico missing, using fallback icon");
                 return SystemIcons.Application;
             }

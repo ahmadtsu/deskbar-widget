@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\DeskbarWidget.Core\DeskbarWidget.Core.csproj" />
@@ -14,5 +14,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>eyes.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="eyes.ico" />
+    <None Update="eyes.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 
 </Project>
