@@ -2,9 +2,10 @@
              x:ClassModifier="internal"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:DeskbarWidget.App"
              Background="Transparent">
     <UserControl.Resources>
-        <Style x:Key="TileButtonStyle" TargetType="Button">
+        <Style x:Key="TileButtonStyle" TargetType="local:TileButton">
             <Setter Property="Width" Value="{DynamicResource TileSize}" />
             <Setter Property="Height" Value="{DynamicResource TileSize}" />
             <Setter Property="Margin" Value="0,0,8,0" />
@@ -16,7 +17,7 @@
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="local:TileButton">
                         <Border x:Name="Bd"
                                 Background="{DynamicResource TileBackground}"
                                 BorderBrush="{DynamicResource TileBorder}"
@@ -32,7 +33,7 @@
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TileBackgroundPressed}" />
                             </Trigger>
-                            <Trigger Property="Tag" Value="True">
+                            <Trigger Property="IsActive" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TileActiveBackground}" />
                                 <Setter Property="Foreground" Value="{DynamicResource TileActiveForeground}" />
                             </Trigger>

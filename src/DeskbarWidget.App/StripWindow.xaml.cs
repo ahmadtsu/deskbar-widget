@@ -100,7 +100,12 @@ internal partial class StripWindow : Window
             Strip.Rebuild(_service.GetDesktops(), e.Index);
             UpdatePosition();
         });
-        _watcher.Changed += (_, snapshot) => Dispatcher.BeginInvoke(() => TileTheme.ApplyTo(Strip, snapshot));
+        _watcher.Changed += (_, snapshot) => Dispatcher.BeginInvoke(() =>
+        {
+            var a = snapshot.Accent;
+            DeskLogger.Info($"theme: light={snapshot.IsLight} accent=#{a.R:X2}{a.G:X2}{a.B:X2}");
+            TileTheme.ApplyTo(Strip, snapshot);
+        });
     }
 
     public void Initialize()
@@ -111,8 +116,9 @@ internal partial class StripWindow : Window
         _ = new WindowInteropHelper(this).EnsureHandle();
 
         Strip.Attach(_service);
-        DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}");
-        TileTheme.ApplyTo(Strip, _watcher.Current);
+        var theme = _watcher.Current;
+        DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}, light={theme.IsLight} accent=#{theme.Accent.R:X2}{theme.Accent.G:X2}{theme.Accent.B:X2}");
+        TileTheme.ApplyTo(Strip, theme);
         TryDock();
     }
 
