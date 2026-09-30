@@ -156,6 +156,85 @@ public sealed class VirtualDesktopApi
         }
     }
 
+    /// <summary>
+    /// Delete a desktop (YASB com.remove). Falls back to the first remaining
+    /// desktop when the deleted one is in view; refuses the last desktop.
+    /// </summary>
+    public void Remove(Guid guid)
+    {
+        var s = Ensure();
+        var fallback = ListDesktops().FirstOrDefault(d => d.Guid != guid);
+        if (fallback is null)
+        {
+            throw new VirtualDesktopException("Cannot remove the only remaining desktop.");
+        }
+
+        switch (s.Tier)
+        {
+            case VirtualDesktopTiers.V26100:
+            {
+                var m = s.Manager26100!;
+                var g = guid;
+                var f = fallback.Guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var destroy), "FindDesktop");
+                ThrowIfFailed(m.FindDesktop(ref f, out var keep), "FindDesktop");
+                ThrowIfFailed(m.RemoveDesktop(destroy, keep), "RemoveDesktop");
+                break;
+            }
+            case VirtualDesktopTiers.V22631:
+            {
+                var m = s.Manager22631!;
+                var g = guid;
+                var f = fallback.Guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var destroy), "FindDesktop");
+                ThrowIfFailed(m.FindDesktop(ref f, out var keep), "FindDesktop");
+                ThrowIfFailed(m.RemoveDesktop(destroy, keep), "RemoveDesktop");
+                break;
+            }
+            case VirtualDesktopTiers.V22621:
+            {
+                var m = s.Manager22621!;
+                var g = guid;
+                var f = fallback.Guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var destroy), "FindDesktop");
+                ThrowIfFailed(m.FindDesktop(ref f, out var keep), "FindDesktop");
+                ThrowIfFailed(m.RemoveDesktop(destroy, keep), "RemoveDesktop");
+                break;
+            }
+            case VirtualDesktopTiers.V22449:
+            case VirtualDesktopTiers.V21313:
+            {
+                var m = s.Manager21313!;
+                var g = guid;
+                var f = fallback.Guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var destroy), "FindDesktop");
+                ThrowIfFailed(m.FindDesktop(ref f, out var keep), "FindDesktop");
+                ThrowIfFailed(m.RemoveDesktop(destroy, keep), "RemoveDesktop");
+                break;
+            }
+            case VirtualDesktopTiers.V20231:
+            {
+                var m = s.Manager20231!;
+                var g = guid;
+                var f = fallback.Guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var destroy), "FindDesktop");
+                ThrowIfFailed(m.FindDesktop(ref f, out var keep), "FindDesktop");
+                ThrowIfFailed(m.RemoveDesktop(destroy, keep), "RemoveDesktop");
+                break;
+            }
+            default:
+            {
+                var m = s.ManagerWin10!;
+                var g = guid;
+                var f = fallback.Guid;
+                ThrowIfFailed(m.FindDesktop(ref g, out var destroy), "FindDesktop");
+                ThrowIfFailed(m.FindDesktop(ref f, out var keep), "FindDesktop");
+                ThrowIfFailed(m.RemoveDesktop(destroy, keep), "RemoveDesktop");
+                break;
+            }
+        }
+    }
+
     internal IVirtualDesktopNotificationService NotificationService()
     {
         var provider = CreateProvider();

@@ -70,6 +70,7 @@ internal partial class DesktopsStrip
                     // Shell hiccup; notification/poll will correct the UI.
                 }
             };
+            btn.ContextMenu = BuildTileMenu(number, desktops.Count);
             Tiles.Items.Add(btn);
         }
 
@@ -81,8 +82,35 @@ internal partial class DesktopsStrip
         }
     }
 
-    public void UpdateActive(int current)
+    /// <summary>
+    /// Tile menu, v1: Delete only (YASB WorkspaceButton menu trimmed).
+    /// Disabled while a single desktop remains, like the shell itself.
+    /// </summary>
+    private ContextMenu BuildTileMenu(int number, int desktopCount)
     {
+        var delete = new MenuItem
+        {
+            Header = "Delete",
+            // Segoe MDL2 delete glyph, like EverythingToolbar menu icons.
+            Icon = "",
+            IsEnabled = desktopCount > 1,
+        };
+        delete.Click += (_, _) =>
+        {
+            try
+            {
+                DeskLogger.Info($"delete desktop #{number}");
+                _service?.DeleteDesktop(number);
+            }
+            catch (Exception ex)
+            {
+                DeskLogger.Info($"delete failed: {ex.Message}");
+            }
+        };
+        return new ContextMenu { Items = { delete } };
+    }
+
+    public void UpdateActive(int current)    {
         foreach (var item in Tiles.Items)
         {
             if (item is not TileButton { Tag: int number } btn)

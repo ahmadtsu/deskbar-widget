@@ -13,4 +13,14 @@
   <FontFamily x:Key="TileFontFamily">Segoe UI Variable Text</FontFamily>
   <sys:Double x:Key="TileFontSize">12</sys:Double>
   <FontWeight x:Key="TileFontWeight">SemiBold</FontWeight>
+
+  <!-- Context menu tokens adapted from EverythingToolbar Win11 Dark (MIT). -->
+  <SolidColorBrush x:Key="ContextMenuBackground" Color="#2e2e2e" />
+  <SolidColorBrush x:Key="ContextMenuBorder" Color="#1d1d1d" />
+  <SolidColorBrush x:Key="ContextMenuSeparator" Color="#3e3e3e" />
+  <SolidColorBrush x:Key="ContextMenuItemBackgroundHover" Color="#383838" />
+  <SolidColorBrush x:Key="ContextMenuItemForeground" Color="#D8D8D8" />
+  <SolidColorBrush x:Key="ContextMenuItemForegroundHover" Color="#d8d8d8" />
+  <CornerRadius x:Key="ContextMenuCornerRadius">8,8,8,8</CornerRadius>
+  <CornerRadius x:Key="ContextMenuMenuItemCornerRadius">5,5,5,5</CornerRadius>
 </ResourceDictionary>

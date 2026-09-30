@@ -135,6 +135,19 @@ public sealed class VirtualDesktopService : IDisposable
         DesktopChanged?.Invoke(this, number);
     }
 
+    /// <summary>
+    /// Delete a desktop (YASB service.remove_desktop). The shell moves to the
+    /// fallback desktop when the deleted one was in view; the following
+    /// refresh broadcasts the new set, and selection changes surface through
+    /// the normal notification path.
+    /// </summary>
+    public void DeleteDesktop(int number)
+    {
+        var desktop = Resolve(number);
+        _reader.Remove(desktop.Guid);
+        ForceRefresh(updateButtons: false);
+    }
+
     public void ForceRefresh(bool updateButtons = false)
     {
         lock (_gate)

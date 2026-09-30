@@ -17,6 +17,7 @@ public partial class App : Application
     private VirtualDesktopService? _service;
     private ThemeWatcher? _watcher;
     private StripWindow? _window;
+    private Mutex? _instanceMutex;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -40,6 +41,20 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+
+        // Single instance: a second launch would double every tile and fight
+        // over the taskbar gap (EverythingToolbar uses the same Mutex pattern).
+        _instanceMutex = new Mutex(initiallyOwned: true, name: "DeskbarWidget", out var createdNew);
+        if (!createdNew)
+        {
+            MessageBox.Show(
+                "DeskbarWidget is already running.",
+                "DeskbarWidget",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            Shutdown(0);
+            return;
+        }
 
         // Default home is the left corner (left of the centered cluster);
         // pass --align=right to dock by the tray instead.

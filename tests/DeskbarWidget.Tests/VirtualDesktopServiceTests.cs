@@ -9,6 +9,7 @@ internal sealed class FakeReader : IDesktopReader
     public Guid CurrentGuid;
     public bool Fail;
     public List<Guid> SwitchedTo = [];
+    public List<Guid> Removed = [];
 
     public IReadOnlyList<DesktopData> List()
     {
@@ -31,6 +32,20 @@ internal sealed class FakeReader : IDesktopReader
     }
 
     public void SwitchTo(Guid guid) => SwitchedTo.Add(guid);
+
+    public void Remove(Guid guid)
+    {
+        Removed.Add(guid);
+        var doomed = Desktops.FirstOrDefault(d => d.Guid == guid);
+        if (doomed is not null)
+        {
+            Desktops.Remove(doomed);
+            if (CurrentGuid == guid)
+            {
+                CurrentGuid = Desktops.FirstOrDefault()?.Guid ?? Guid.Empty;
+            }
+        }
+    }
 }
 
 public sealed class VirtualDesktopServiceTests
@@ -157,5 +172,42 @@ public sealed class VirtualDesktopServiceTests
         using var svc = new VirtualDesktopService(fake);
 
         Assert.Throws<VirtualDesktopException>(() => svc.SwitchDesktop(9));
+    }
+
+    [Fact]
+    public void DeleteDesktop_Removes_AndBroadcastsNewSet()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+        DesktopsUpdatedEventArgs? updated = null;
+        svc.DesktopsUpdated += (_, e) => updated = e;
+
+        svc.DeleteDesktop(2);
+
+        Assert.Equal([G2], fake.Removed);
+        Assert.True(WaitFor(() => updated is not null));
+        Assert.Single(svc.GetDesktops());
+    }
+
+    [Fact]
+    public void DeleteDesktop_Current_FallsBackToRemaining()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+
+        svc.DeleteDesktop(1);
+
+        Assert.Equal([G1], fake.Removed);
+        Assert.Equal(2, svc.GetCurrentDesktop().Number);
+    }
+
+    [Fact]
+    public void DeleteDesktop_UnknownNumber_Throws()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+
+        Assert.Throws<VirtualDesktopException>(() => svc.DeleteDesktop(9));
+        Assert.Empty(fake.Removed);
     }
 }
