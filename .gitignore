@@ -496,3 +496,6 @@ artifacts/
 # Negate the macOS `*.app` bundle rule above for our WPF project dir
 !src/DeskbarWidget.App/
 !src/DeskbarWidget.App/**
+# ...but keep ignoring its build outputs
+src/DeskbarWidget.App/bin/
+src/DeskbarWidget.App/obj/
