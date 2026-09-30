@@ -1,0 +1,16 @@
+<Window x:Class="DeskbarWidget.App.StripWindow"
+        x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DeskbarWidget.App"
+        Title="DeskbarWidget"
+        Width="240" Height="32"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        WindowStyle="None">
+    <local:DesktopsStrip x:Name="Strip" />
+</Window>

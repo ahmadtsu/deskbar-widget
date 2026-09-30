@@ -1,0 +1,16 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+  <!-- Adapted from EverythingToolbar Win11 Light theme tokens (MIT © 2023 Stephan Rumswinkel). See ATTRIBUTION.md. -->
+  <SolidColorBrush x:Key="TileBackground" Color="#c0ffffff" />
+  <SolidColorBrush x:Key="TileBackgroundHover" Color="#ccf9f9f9" />
+  <SolidColorBrush x:Key="TileBackgroundPressed" Color="#ffffff" />
+  <SolidColorBrush x:Key="TileForeground" Color="#1b1b1b" />
+  <SolidColorBrush x:Key="TileBorder" Color="#9bcfcfcf" />
+  <CornerRadius x:Key="TileCornerRadius">8,8,8,8</CornerRadius>
+  <sys:Double x:Key="TileSize">28</sys:Double>
+  <Thickness x:Key="TileGap">0,0,8,0</Thickness>
+  <FontFamily x:Key="TileFontFamily">Segoe UI Variable Text</FontFamily>
+  <sys:Double x:Key="TileFontSize">12</sys:Double>
+  <FontWeight x:Key="TileFontWeight">SemiBold</FontWeight>
+</ResourceDictionary>
