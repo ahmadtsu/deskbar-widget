@@ -1,0 +1,152 @@
+<Window x:Class="DeskbarWidget.App.RenameWindow"
+        x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        SnapsToDevicePixels="True"
+        FocusManager.FocusedElement="{Binding ElementName=NameInput}">
+    <!-- Visual structure and layout adapted from YASB Reborn's windows-desktops-popup
+         rename dialog (MIT © 2024 amnweb). See ATTRIBUTION.md. -->
+    <Window.Resources>
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource TileActiveBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource TileActiveForeground}" />
+            <Setter Property="FontFamily" Value="{DynamicResource TileFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,4" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ContextMenuItemBackgroundHover}" />
+            <Setter Property="Foreground" Value="{DynamicResource ContextMenuItemForeground}" />
+            <Setter Property="FontFamily" Value="{DynamicResource TileFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{DynamicResource ContextMenuBorder}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,4" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.65" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Border Width="320"
+                Background="{DynamicResource ContextMenuBackground}"
+                BorderBrush="{DynamicResource ContextMenuBorder}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource ContextMenuCornerRadius}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="12" Opacity="0.35" ShadowDepth="2" Direction="270" Color="Black" />
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="16,16,16,12">
+                    <TextBlock Text="Rename Desktop"
+                               FontFamily="{DynamicResource TileFontFamily}"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ContextMenuItemForeground}"
+                               Margin="0,0,0,4" />
+                    <TextBlock Text="Enter a new name for this desktop."
+                               FontFamily="{DynamicResource TileFontFamily}"
+                               FontSize="12"
+                               Foreground="{DynamicResource ContextMenuItemForeground}"
+                               Opacity="0.75"
+                               Margin="0,0,0,12" />
+                    <Border Background="#12888888"
+                            BorderBrush="{DynamicResource ContextMenuBorder}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8,5">
+                        <TextBox x:Name="NameInput"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 FontFamily="{DynamicResource TileFontFamily}"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Foreground="{DynamicResource ContextMenuItemForeground}"
+                                 CaretBrush="{DynamicResource ContextMenuItemForeground}" />
+                    </Border>
+                </StackPanel>
+
+                <Border Grid.Row="1"
+                        Background="#08888888"
+                        BorderBrush="{DynamicResource ContextMenuBorder}"
+                        BorderThickness="0,1,0,0"
+                        CornerRadius="0,0,7,7"
+                        Padding="16,12">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="RenameBtn"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Content="Rename"
+                                IsDefault="True"
+                                MinWidth="80"
+                                Height="28"
+                                Margin="0,0,8,0"
+                                Click="OnRenameClicked" />
+                        <Button x:Name="CancelBtn"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Content="Cancel"
+                                IsCancel="True"
+                                MinWidth="80"
+                                Height="28"
+                                Click="OnCancelClicked" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

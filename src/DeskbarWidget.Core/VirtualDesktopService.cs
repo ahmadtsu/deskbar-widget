@@ -148,6 +148,18 @@ public sealed class VirtualDesktopService : IDisposable
         ForceRefresh(updateButtons: false);
     }
 
+    /// <summary>
+    /// Rename a desktop (YASB service.rename_desktop). Invalidates cache and
+    /// broadcasts the updated desktop set with updateButtons=true so tile
+    /// labels and active pill widths recompute immediately.
+    /// </summary>
+    public void RenameDesktop(int number, string name)
+    {
+        var desktop = Resolve(number);
+        _reader.Rename(desktop.Guid, name);
+        ForceRefresh(updateButtons: true);
+    }
+
     public void ForceRefresh(bool updateButtons = false)
     {
         lock (_gate)

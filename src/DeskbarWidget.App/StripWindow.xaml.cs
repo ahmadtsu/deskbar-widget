@@ -63,6 +63,7 @@ internal partial class StripWindow : Window
     private bool _docked;
     private bool _standalone;
     private int _attachRetriesLeft = AttachRetryCount;
+    private DispatcherTimer? _dockRetryTimer;
     private int _positionGeneration;
     private bool _refreshLayoutElements = true;
     private DateTime _settleDeadline;
@@ -97,6 +98,13 @@ internal partial class StripWindow : Window
             UpdatePosition();
         };
         Closed += (_, _) => Cleanup();
+        MouseDown += (_, e) =>
+        {
+            if (_standalone && e.ChangedButton == System.Windows.Input.MouseButton.Left)
+            {
+                DragMove();
+            }
+        };
 
         _service.DesktopChanged += (_, index) => Dispatcher.BeginInvoke(() =>
         {
@@ -133,7 +141,7 @@ internal partial class StripWindow : Window
         // Theme first: tile measuring reads theme font tokens.
         var theme = _watcher.Current;
         TileTheme.ApplyTo(Strip, theme);
-        Strip.Attach(_service);
+        Strip.Attach(_service, _watcher);
         DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}, light={theme.IsLight} accent=#{theme.Accent.R:X2}{theme.Accent.G:X2}{theme.Accent.B:X2}");
         TryDock();
     }
@@ -155,8 +163,8 @@ internal partial class StripWindow : Window
         _taskbarHandle = NativeTaskbar.FindTaskbarHandle();
         if (_taskbarHandle == nint.Zero)
         {
-            DeskLogger.Info("TryDock: Shell_TrayWnd not found");
-            ScheduleRetryOrFallback();
+            DeskLogger.Info("TryDock: Shell_TrayWnd not found, using standalone mode");
+            FallbackStandalone();
             return;
         }
 
@@ -185,12 +193,15 @@ internal partial class StripWindow : Window
 
     private void ScheduleRetryOrFallback()
     {
+        DeskLogger.Info($"ScheduleRetryOrFallback: retries left={_attachRetriesLeft}");
         if (_attachRetriesLeft-- > 0)
         {
-            var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            t.Tick += (_, _) =>
+            _dockRetryTimer?.Stop();
+            _dockRetryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _dockRetryTimer.Tick += (_, _) =>
             {
-                t.Stop();
+                DeskLogger.Info("Dock retry tick");
+                _dockRetryTimer.Stop();
                 if (_handle == nint.Zero)
                 {
                     return;
@@ -198,7 +209,7 @@ internal partial class StripWindow : Window
 
                 TryDock();
             };
-            t.Start();
+            _dockRetryTimer.Start();
             return;
         }
 

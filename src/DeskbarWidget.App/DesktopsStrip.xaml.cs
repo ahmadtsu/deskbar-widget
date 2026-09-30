@@ -23,6 +23,7 @@ internal partial class DesktopsStrip
     private static readonly Duration GrowDuration = new(TimeSpan.FromMilliseconds(200));
 
     private VirtualDesktopService? _service;
+    private Themes.ThemeWatcher? _watcher;
     private readonly Dictionary<int, string> _names = new();
 
     public DesktopsStrip()
@@ -32,9 +33,10 @@ internal partial class DesktopsStrip
 
     public int TileCount => Tiles.Items.Count;
 
-    public void Attach(VirtualDesktopService service)
+    public void Attach(VirtualDesktopService service, Themes.ThemeWatcher watcher)
     {
         _service = service;
+        _watcher = watcher;
         var desktops = service.GetDesktops();
         Rebuild(desktops, service.GetCurrentDesktop().Number);
     }
@@ -70,7 +72,7 @@ internal partial class DesktopsStrip
                     // Shell hiccup; notification/poll will correct the UI.
                 }
             };
-            btn.ContextMenu = BuildTileMenu(number, desktops.Count);
+            btn.ContextMenu = BuildTileMenu(btn, number, desktops.Count);
             Tiles.Items.Add(btn);
         }
 
@@ -83,11 +85,33 @@ internal partial class DesktopsStrip
     }
 
     /// <summary>
-    /// Tile menu, v1: Delete only (YASB WorkspaceButton menu trimmed).
-    /// Disabled while a single desktop remains, like the shell itself.
+    /// Tile context menu (adapted from YASB WorkspaceButton context menu):
+    /// - Rename (opens YASB-styled floating popup input dialog)
+    /// - Delete (disabled while a single desktop remains, like the shell itself)
     /// </summary>
-    private ContextMenu BuildTileMenu(int number, int desktopCount)
+    private ContextMenu BuildTileMenu(TileButton btn, int number, int desktopCount)
     {
+        var rename = new MenuItem
+        {
+            Header = "Rename",
+            // Segoe MDL2 / Fluent Rename glyph (\uE8AC), matching EverythingToolbar menu icons.
+            Icon = "\uE8AC",
+        };
+        rename.Click += (_, _) =>
+        {
+            if (_service is null || _watcher is null)
+            {
+                return;
+            }
+
+            var currentName = _names.TryGetValue(number, out var name) ? name : $"Desktop {number}";
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () =>
+            {
+                var dialog = new RenameWindow(_service, _watcher, number, currentName);
+                dialog.ShowRelativeTo(btn);
+            });
+        };
+
         var delete = new MenuItem
         {
             Header = "Delete",
@@ -107,7 +131,7 @@ internal partial class DesktopsStrip
                 DeskLogger.Info($"delete failed: {ex.Message}");
             }
         };
-        return new ContextMenu { Items = { delete } };
+        return new ContextMenu { Items = { rename, delete } };
     }
 
     public void UpdateActive(int current)    {

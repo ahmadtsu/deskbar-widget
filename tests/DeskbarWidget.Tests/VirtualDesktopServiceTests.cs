@@ -10,6 +10,7 @@ internal sealed class FakeReader : IDesktopReader
     public bool Fail;
     public List<Guid> SwitchedTo = [];
     public List<Guid> Removed = [];
+    public List<(Guid Guid, string Name)> Renamed = [];
 
     public IReadOnlyList<DesktopData> List()
     {
@@ -44,6 +45,17 @@ internal sealed class FakeReader : IDesktopReader
             {
                 CurrentGuid = Desktops.FirstOrDefault()?.Guid ?? Guid.Empty;
             }
+        }
+    }
+
+    public void Rename(Guid guid, string name)
+    {
+        Renamed.Add((guid, name));
+        var target = Desktops.FirstOrDefault(d => d.Guid == guid);
+        if (target is not null)
+        {
+            var idx = Desktops.IndexOf(target);
+            Desktops[idx] = new DesktopData(target.Number, target.Guid, name);
         }
     }
 }
@@ -209,5 +221,31 @@ public sealed class VirtualDesktopServiceTests
 
         Assert.Throws<VirtualDesktopException>(() => svc.DeleteDesktop(9));
         Assert.Empty(fake.Removed);
+    }
+
+    [Fact]
+    public void RenameDesktop_UpdatesName_AndBroadcastsWithUpdateButtons()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+        DesktopsUpdatedEventArgs? updated = null;
+        svc.DesktopsUpdated += (_, e) => updated = e;
+
+        svc.RenameDesktop(1, "Main Work");
+
+        Assert.Equal([(G1, "Main Work")], fake.Renamed);
+        Assert.True(WaitFor(() => updated is not null));
+        Assert.True(updated!.UpdateButtons);
+        Assert.Equal("Main Work", svc.GetDesktopName(1));
+    }
+
+    [Fact]
+    public void RenameDesktop_UnknownNumber_Throws()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+
+        Assert.Throws<VirtualDesktopException>(() => svc.RenameDesktop(9, "New Name"));
+        Assert.Empty(fake.Renamed);
     }
 }

@@ -53,6 +53,9 @@ SOFTWARE.
   (`com.py`), dual-sink push notifications (`notification.py`), cached service
   with coalesced refresh + poll fallback (`service.py`), and the
   `selfcheck.py` diagnostic idea behind our `--selfcheck` mode.
+- What we adapted for desktop renaming: right-click Rename menu and floating
+  popup dialog (`WorkspaceButton.rename_desktop` in `windows_desktops.py` and
+  styles in `styles.css`), and COM `SetName` invocation (`com.rename`).
 
 ```
 MIT License
