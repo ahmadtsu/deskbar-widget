@@ -8,7 +8,7 @@ namespace DeskbarWidget.App;
 /// on Tag never fires: Tag is object and XAML Value="True" stays a string,
 /// so the comparison against bool true always fails.)
 /// </summary>
-internal sealed class TileButton : Button
+internal sealed class TileButton : System.Windows.Controls.Button
 {
     public static readonly DependencyProperty IsActiveProperty =
         DependencyProperty.Register(

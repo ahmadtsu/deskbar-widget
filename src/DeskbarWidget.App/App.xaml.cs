@@ -9,7 +9,7 @@ namespace DeskbarWidget.App;
 /// Startup: CLI switches first (--selfcheck/--help/autostart), then the
 /// taskbar-docked strip (or a standalone bar if docking fails).
 /// </summary>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValue = "DeskbarWidget";
@@ -17,6 +17,7 @@ public partial class App : Application
     private VirtualDesktopService? _service;
     private ThemeWatcher? _watcher;
     private StripWindow? _window;
+    private TrayIcon? _tray;
     private Mutex? _instanceMutex;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -47,7 +48,7 @@ public partial class App : Application
         _instanceMutex = new Mutex(initiallyOwned: true, name: "DeskbarWidget", out var createdNew);
         if (!createdNew)
         {
-            MessageBox.Show(
+            System.Windows.MessageBox.Show(
                 "DeskbarWidget is already running.",
                 "DeskbarWidget",
                 MessageBoxButton.OK,
@@ -69,7 +70,7 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             DeskLogger.Info($"UI crash: {args.Exception}");
-            MessageBox.Show(
+            System.Windows.MessageBox.Show(
                 $"DeskbarWidget crashed:{Environment.NewLine}{args.Exception.Message}" +
                 $"{Environment.NewLine}{Environment.NewLine}Details in %LocalAppData%\\DeskbarWidget\\deskbar.log",
                 "DeskbarWidget",
@@ -83,14 +84,16 @@ public partial class App : Application
 
         try
         {
+            _tray = new TrayIcon(Shutdown);
             _window.Initialize();
             _service.Start();
+            _tray.Show();
             DeskLogger.Info("running");
         }
         catch (Exception ex)
         {
             DeskLogger.Info($"Startup crash: {ex}");
-            MessageBox.Show(
+            System.Windows.MessageBox.Show(
                 $"DeskbarWidget failed to start:{Environment.NewLine}{ex.Message}" +
                 $"{Environment.NewLine}{Environment.NewLine}Details in %LocalAppData%\\DeskbarWidget\\deskbar.log",
                 "DeskbarWidget",
@@ -102,6 +105,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _tray?.Dispose();
         _service?.Dispose();
         _watcher?.Dispose();
         base.OnExit(e);

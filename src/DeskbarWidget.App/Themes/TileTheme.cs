@@ -38,8 +38,10 @@ internal static class TileTheme
         root.Resources.MergedDictionaries.Add(themeDict);
         added.Add(themeDict);
 
-        Color accent = theme.Accent;
-        Color foreground = IsLight(accent) ? Colors.Black : Colors.White;
+        System.Windows.Media.Color accent = theme.Accent;
+        System.Windows.Media.Color foreground = IsLight(accent)
+            ? System.Windows.Media.Colors.Black
+            : System.Windows.Media.Colors.White;
 
         var activeBackground = new SolidColorBrush(accent);
         var activeForeground = new SolidColorBrush(foreground);
@@ -55,5 +57,5 @@ internal static class TileTheme
         added.Add(activeDict);
     }
 
-    private static bool IsLight(Color c) => (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) > 150;
+    private static bool IsLight(System.Windows.Media.Color c) => (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) > 150;
 }

@@ -158,15 +158,17 @@ internal partial class DesktopsStrip
         Text = text,
         MaxWidth = MaxActiveWidth - ActiveHorizontalPadding,
         TextTrimming = TextTrimming.CharacterEllipsis,
-        HorizontalAlignment = HorizontalAlignment.Center,
-        VerticalAlignment = VerticalAlignment.Center,
+        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+        VerticalAlignment = System.Windows.VerticalAlignment.Center,
     };
 
     private double ActiveWidth(string label)
     {
         // Theme dictionaries may not be merged yet on first build; fall back
         // to matching literals rather than crashing (see Initialize order).
-        var family = Resources["TileFontFamily"] as FontFamily ?? new FontFamily("Segoe UI Variable Text");
+        var family =
+            Resources["TileFontFamily"] as System.Windows.Media.FontFamily
+            ?? new System.Windows.Media.FontFamily("Segoe UI Variable Text");
         var size = Resources["TileFontSize"] is double s ? s : 12.0;
         var weight = Resources["TileFontWeight"] is FontWeight w ? w : FontWeights.SemiBold;
         double pixelsPerDip = 1.0;
@@ -183,10 +185,10 @@ internal partial class DesktopsStrip
         var text = new FormattedText(
             label,
             CultureInfo.CurrentUICulture,
-            FlowDirection.LeftToRight,
+            System.Windows.FlowDirection.LeftToRight,
             typeface,
             size,
-            Brushes.Black,
+            System.Windows.Media.Brushes.Black,
             pixelsPerDip);
         return Math.Clamp(text.Width + ActiveHorizontalPadding, InactiveWidth, MaxActiveWidth);
     }

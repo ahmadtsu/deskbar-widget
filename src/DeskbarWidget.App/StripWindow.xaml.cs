@@ -298,7 +298,7 @@ internal partial class StripWindow : Window
 
         // Measure the rendered content so the HWND is sized to what WPF draws
         // (plus 1px slack), never the other way around.
-        Strip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        Strip.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
         var contentPx = Strip.DesiredSize.Width * dpi;
 
         var bounds = StripBounds.Calculate(handle, taskbarRect, layout, dpi, alignment, centerAligned, tiles, contentPx + dpi);

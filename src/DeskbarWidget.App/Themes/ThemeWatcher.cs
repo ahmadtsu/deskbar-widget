@@ -189,7 +189,7 @@ internal sealed class ThemeWatcher : IDisposable
         }
     }
 
-    private static Color GetAccentColor()
+    private static System.Windows.Media.Color GetAccentColor()
     {
         try
         {
@@ -199,7 +199,7 @@ internal sealed class ThemeWatcher : IDisposable
                 byte r = (byte)((colorization >> 16) & 0xFF);
                 byte g = (byte)((colorization >> 8) & 0xFF);
                 byte b = (byte)(colorization & 0xFF);
-                return Color.FromRgb(r, g, b);
+                return System.Windows.Media.Color.FromRgb(r, g, b);
             }
 
             Debug.WriteLine($"ThemeWatcher: DwmGetColorizationColor failed (0x{hr:X8}).");
@@ -209,7 +209,7 @@ internal sealed class ThemeWatcher : IDisposable
             Debug.WriteLine($"ThemeWatcher: accent fallback: {ex.Message}");
         }
 
-        return Colors.DimGray;
+        return System.Windows.Media.Colors.DimGray;
     }
 
     public void Dispose()
