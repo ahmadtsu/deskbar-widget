@@ -25,6 +25,8 @@ internal partial class DesktopsStrip
     private VirtualDesktopService? _service;
     private Themes.ThemeWatcher? _watcher;
     private readonly Dictionary<int, string> _names = new();
+    private bool _showAllNames;
+    private int _currentDesktop = 1;
 
     public DesktopsStrip()
     {
@@ -32,17 +34,21 @@ internal partial class DesktopsStrip
     }
 
     public int TileCount => Tiles.Items.Count;
+    public bool ShowAllNames => _showAllNames;
 
-    public void Attach(VirtualDesktopService service, Themes.ThemeWatcher watcher)
+    public void Attach(VirtualDesktopService service, Themes.ThemeWatcher watcher, bool showAllNames = false)
     {
         _service = service;
         _watcher = watcher;
+        _showAllNames = showAllNames;
         var desktops = service.GetDesktops();
-        Rebuild(desktops, service.GetCurrentDesktop().Number);
+        _currentDesktop = service.GetCurrentDesktop().Number;
+        Rebuild(desktops, _currentDesktop);
     }
 
     public void Rebuild(IReadOnlyList<DesktopInfo> desktops, int current)
     {
+        _currentDesktop = current;
         Tiles.Items.Clear();
         _names.Clear();
         var style = (Style)Resources["TileButtonStyle"];
@@ -51,12 +57,14 @@ internal partial class DesktopsStrip
             var name = string.IsNullOrWhiteSpace(d.Name) ? d.Number.ToString() : d.Name;
             _names[d.Number] = name;
             var active = d.Number == current;
+            var label = GetTileLabel(d.Number, active);
+            var width = GetTileWidth(d.Number, active);
             var btn = new TileButton
             {
                 Style = style,
-                Content = MakeLabel(active ? name : d.Number.ToString()),
+                Content = MakeLabel(label),
                 IsActive = active,
-                Width = active ? ActiveWidth(name) : InactiveWidth,
+                Width = width,
                 Tag = d.Number,
                 ToolTip = string.IsNullOrWhiteSpace(d.Name) ? $"Desktop {d.Number}" : d.Name,
             };
@@ -78,7 +86,7 @@ internal partial class DesktopsStrip
 
         // No trailing gap after the last tile: content width is N*36-8, so the
         // native-sized window (N*36 wide) never clips the final tile.
-        if (Tiles.Items[^1] is TileButton last)
+        if (Tiles.Items.Count > 0 && Tiles.Items[^1] is TileButton last)
         {
             last.Margin = new Thickness(0);
         }
@@ -134,7 +142,9 @@ internal partial class DesktopsStrip
         return new ContextMenu { Items = { rename, delete } };
     }
 
-    public void UpdateActive(int current)    {
+    public void UpdateActive(int current)
+    {
+        _currentDesktop = current;
         foreach (var item in Tiles.Items)
         {
             if (item is not TileButton { Tag: int number } btn)
@@ -148,33 +158,94 @@ internal partial class DesktopsStrip
                 continue;
             }
 
-            var label = isActive && _names.TryGetValue(number, out var name) ? name : number.ToString();
-            btn.Content = MakeLabel(label);
             btn.IsActive = isActive;
-            AnimateWidth(btn, isActive ? ActiveWidth(label) : InactiveWidth);
+            var label = GetTileLabel(number, isActive);
+            btn.Content = MakeLabel(label);
+            var targetWidth = GetTileWidth(number, isActive);
+            AnimateWidth(btn, targetWidth);
         }
     }
 
-    /// <summary>
-    /// Re-measure active pills once connected (correct DPI/font tokens).
-    /// Called on window Loaded after the initial blind build.
-    /// </summary>
-    public void RefreshActiveWidths()
+    public void SetShowAllNames(bool showAllNames)
     {
+        if (_showAllNames == showAllNames)
+        {
+            return;
+        }
+
+        _showAllNames = showAllNames;
         foreach (var item in Tiles.Items)
         {
-            if (item is not TileButton { Tag: int number, IsActive: true } btn)
+            if (item is not TileButton { Tag: int number } btn)
             {
                 continue;
             }
 
-            if (_names.TryGetValue(number, out var name))
+            var isActive = number == _currentDesktop;
+            var label = GetTileLabel(number, isActive);
+            btn.Content = MakeLabel(label);
+            var targetWidth = GetTileWidth(number, isActive);
+            AnimateWidth(btn, targetWidth);
+        }
+    }
+
+    /// <summary>
+    /// Re-measure pills once connected (correct DPI/font tokens).
+    /// Called on window Loaded after the initial blind build.
+    /// </summary>
+    public void RefreshTileWidths()
+    {
+        foreach (var item in Tiles.Items)
+        {
+            if (item is not TileButton { Tag: int number } btn)
             {
-                btn.Content = MakeLabel(name);
-                btn.BeginAnimation(WidthProperty, null);
-                btn.Width = ActiveWidth(name);
+                continue;
+            }
+
+            var isActive = number == _currentDesktop;
+            var label = GetTileLabel(number, isActive);
+            btn.Content = MakeLabel(label);
+            btn.BeginAnimation(WidthProperty, null);
+            btn.Width = GetTileWidth(number, isActive);
+        }
+    }
+
+    /// <summary>
+    /// Computes the exact target DIP width needed to display all tiles without clipping.
+    /// </summary>
+    public double ComputeDesiredContentWidth()
+    {
+        double width = 8; // Margin="8,0,0,0" on ItemsControl
+        for (int i = 0; i < Tiles.Items.Count; i++)
+        {
+            if (Tiles.Items[i] is TileButton { Tag: int number })
+            {
+                var isActive = number == _currentDesktop;
+                width += GetTileWidth(number, isActive);
+                if (i < Tiles.Items.Count - 1)
+                {
+                    width += 8; // Margin="0,0,8,0" between tiles
+                }
             }
         }
+        return width;
+    }
+
+    private string GetTileLabel(int number, bool isActive)
+    {
+        var name = _names.TryGetValue(number, out var n) ? n : null;
+        return DesktopLabelPolicy.GetLabel(number, name, isActive, _showAllNames);
+    }
+
+    private double GetTileWidth(int number, bool isActive)
+    {
+        if (_showAllNames || isActive)
+        {
+            var name = _names.TryGetValue(number, out var n) ? n : number.ToString();
+            return CalculateTileWidth(name);
+        }
+
+        return InactiveWidth;
     }
 
     private static TextBlock MakeLabel(string text) => new()
@@ -186,7 +257,7 @@ internal partial class DesktopsStrip
         VerticalAlignment = System.Windows.VerticalAlignment.Center,
     };
 
-    private double ActiveWidth(string label)
+    private double CalculateTileWidth(string label)
     {
         // Theme dictionaries may not be merged yet on first build; fall back
         // to matching literals rather than crashing (see Initialize order).
@@ -219,9 +290,17 @@ internal partial class DesktopsStrip
 
     private static void AnimateWidth(TileButton btn, double to)
     {
+        var from = double.IsNaN(btn.Width) ? (btn.ActualWidth > 0 ? btn.ActualWidth : InactiveWidth) : btn.Width;
+        if (Math.Abs(from - to) < 0.5)
+        {
+            btn.BeginAnimation(WidthProperty, null);
+            btn.Width = to;
+            return;
+        }
+
         btn.BeginAnimation(
             WidthProperty,
-            new DoubleAnimation(btn.ActualWidth, to, GrowDuration)
+            new DoubleAnimation(from, to, GrowDuration)
             {
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
             });

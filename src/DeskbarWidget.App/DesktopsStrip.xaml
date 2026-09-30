@@ -3,7 +3,10 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:DeskbarWidget.App"
-             Background="Transparent">
+             Background="Transparent"
+             TextOptions.TextFormattingMode="Display"
+             TextOptions.TextRenderingMode="ClearType"
+             SnapsToDevicePixels="True">
     <UserControl.Resources>
         <Style x:Key="TileButtonStyle" TargetType="local:TileButton">
             <Setter Property="Width" Value="{DynamicResource TileSize}" />
@@ -35,6 +38,7 @@
                             </Trigger>
                             <Trigger Property="IsActive" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TileActiveBackground}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent" />
                                 <Setter Property="Foreground" Value="{DynamicResource TileActiveForeground}" />
                             </Trigger>
                         </ControlTemplate.Triggers>

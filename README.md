@@ -30,7 +30,9 @@ Native-feel Windows virtual-desktops strip, pinned to the taskbar.
 
 ## Usage
 
-- Click a number tile to switch desktops.
+- Click a desktop tile to switch desktops.
+- Right-click any desktop tile to rename or delete it.
+- Right-click the system tray icon to toggle "Show all desktop names" (persisted in registry) or exit.
 - `--selfcheck`: prints Windows build, COM tier, desktops + current, exits.
   Useful for bug reports on new Windows builds.
 

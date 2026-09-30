@@ -55,6 +55,7 @@ internal partial class StripWindow : Window
     private readonly VirtualDesktopService _service;
     private readonly ThemeWatcher _watcher;
     private readonly string _alignment;
+    private bool _showAllNames;
     private readonly TaskbarLayoutProbe _probe = new();
     private TaskbarWindowAnimator? _animator;
 
@@ -76,11 +77,12 @@ internal partial class StripWindow : Window
     private WinEventProc? _winEventCallback;
     private nint _winEventHook;
 
-    public StripWindow(VirtualDesktopService service, ThemeWatcher watcher, string alignment)
+    public StripWindow(VirtualDesktopService service, ThemeWatcher watcher, string alignment, bool showAllNames = false)
     {
         _service = service;
         _watcher = watcher;
         _alignment = alignment == "Left" ? "Left" : "Right";
+        _showAllNames = showAllNames;
 
         InitializeComponent();
 
@@ -94,7 +96,7 @@ internal partial class StripWindow : Window
 
         Loaded += (_, _) =>
         {
-            Strip.RefreshActiveWidths();
+            Strip.RefreshTileWidths();
             UpdatePosition();
         };
         Closed += (_, _) => Cleanup();
@@ -131,6 +133,27 @@ internal partial class StripWindow : Window
         });
     }
 
+    public void SetShowAllNames(bool showAllNames)
+    {
+        _showAllNames = showAllNames;
+        Dispatcher.BeginInvoke(() =>
+        {
+            Strip.SetShowAllNames(showAllNames);
+            if (_standalone)
+            {
+                Width = Math.Max(240, Strip.ComputeDesiredContentWidth() + 16);
+            }
+            UpdatePosition();
+            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            t.Tick += (_, _) =>
+            {
+                t.Stop();
+                UpdatePosition();
+            };
+            t.Start();
+        });
+    }
+
     public void Initialize()
     {
         // Force HWND creation now: TryDock needs a real handle for
@@ -141,8 +164,8 @@ internal partial class StripWindow : Window
         // Theme first: tile measuring reads theme font tokens.
         var theme = _watcher.Current;
         TileTheme.ApplyTo(Strip, theme);
-        Strip.Attach(_service, _watcher);
-        DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}, light={theme.IsLight} accent=#{theme.Accent.R:X2}{theme.Accent.G:X2}{theme.Accent.B:X2}");
+        Strip.Attach(_service, _watcher, _showAllNames);
+        DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}, light={theme.IsLight} accent=#{theme.Accent.R:X2}{theme.Accent.G:X2}{theme.Accent.B:X2} showAllNames={_showAllNames}");
         TryDock();
     }
 
@@ -219,6 +242,7 @@ internal partial class StripWindow : Window
     private void FallbackStandalone()
     {
         _standalone = true;
+        Width = Math.Max(240, Strip.ComputeDesiredContentWidth() + 16);
         var area = SystemParameters.WorkArea;
         Left = area.Right - Width - 16;
         Top = area.Top + 8;
@@ -310,7 +334,8 @@ internal partial class StripWindow : Window
         // Measure the rendered content so the HWND is sized to what WPF draws
         // (plus 1px slack), never the other way around.
         Strip.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
-        var contentPx = Strip.DesiredSize.Width * dpi;
+        var contentDip = Math.Max(Strip.DesiredSize.Width, Strip.ComputeDesiredContentWidth());
+        var contentPx = contentDip * dpi;
 
         var bounds = StripBounds.Calculate(handle, taskbarRect, layout, dpi, alignment, centerAligned, tiles, contentPx + dpi);
         if (bounds is { } b)

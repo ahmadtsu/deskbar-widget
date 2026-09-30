@@ -64,9 +64,10 @@ public partial class App : System.Windows.Application
             ? "Right"
             : "Left";
 
+        var showAllNames = AppSettings.ShowAllDesktopNames;
         _service = new VirtualDesktopService();
         _watcher = new ThemeWatcher();
-        _window = new StripWindow(_service, _watcher, alignment);
+        _window = new StripWindow(_service, _watcher, alignment, showAllNames);
 
         DispatcherUnhandledException += (_, args) =>
         {
@@ -85,7 +86,7 @@ public partial class App : System.Windows.Application
 
         try
         {
-            _tray = new TrayIcon(Shutdown);
+            _tray = new TrayIcon(Shutdown, showAllNames, OnShowAllNamesChanged);
             _window.Initialize();
             _service.Start();
             _tray.Show();
@@ -102,6 +103,13 @@ public partial class App : System.Windows.Application
                 MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private void OnShowAllNamesChanged(bool showAllNames)
+    {
+        DeskLogger.Info($"tray: toggle showAllNames={showAllNames}");
+        AppSettings.ShowAllDesktopNames = showAllNames;
+        _window?.SetShowAllNames(showAllNames);
     }
 
     protected override void OnExit(ExitEventArgs e)

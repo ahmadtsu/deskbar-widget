@@ -11,17 +11,30 @@ namespace DeskbarWidget.App;
 internal sealed class TrayIcon : IDisposable
 {
     private readonly Forms.NotifyIcon _icon;
+    private readonly Forms.ToolStripMenuItem _showNamesItem;
     private Icon? _ownedIcon;
     private bool _disposed;
 
-    public TrayIcon(Action onExit)
+    public TrayIcon(Action onExit, bool showAllNames, Action<bool> onShowAllNamesChanged)
     {
         _ownedIcon = LoadIcon();
+
+        _showNamesItem = new Forms.ToolStripMenuItem("Show all desktop names")
+        {
+            CheckOnClick = true,
+            Checked = showAllNames,
+        };
+        _showNamesItem.Click += (_, _) => onShowAllNamesChanged(_showNamesItem.Checked);
 
         var exit = new Forms.ToolStripMenuItem("Exit");
         exit.Click += (_, _) => onExit();
 
-        var menu = new Forms.ContextMenuStrip();
+        var menu = new Forms.ContextMenuStrip
+        {
+            RenderMode = Forms.ToolStripRenderMode.System,
+        };
+        menu.Items.Add(_showNamesItem);
+        menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(exit);
 
         _icon = new Forms.NotifyIcon
@@ -34,6 +47,11 @@ internal sealed class TrayIcon : IDisposable
     }
 
     public void Show() => _icon.Visible = true;
+
+    public void SetShowAllNames(bool showAllNames)
+    {
+        _showNamesItem.Checked = showAllNames;
+    }
 
     public void Dispose()
     {
