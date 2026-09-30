@@ -105,7 +105,13 @@ internal partial class StripWindow : Window
 
     public void Initialize()
     {
+        // Force HWND creation now: TryDock needs a real handle for
+        // GetWindowLong/SetParent (it is otherwise only created on Show()).
+        // This also fires OnSourceInitialized (animator + taskbar hook setup).
+        _ = new WindowInteropHelper(this).EnsureHandle();
+
         Strip.Attach(_service);
+        DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}");
         TileTheme.ApplyTo(Strip, _watcher.Current);
         TryDock();
     }
@@ -116,6 +122,7 @@ internal partial class StripWindow : Window
     {
         if (!CanDock())
         {
+            DeskLogger.Info("TryDock: not dockable (old Windows or classic taskbar)");
             ScheduleRetryOrFallback();
             return;
         }
@@ -123,6 +130,7 @@ internal partial class StripWindow : Window
         _taskbarHandle = NativeTaskbar.FindTaskbarHandle();
         if (_taskbarHandle == nint.Zero)
         {
+            DeskLogger.Info("TryDock: Shell_TrayWnd not found");
             ScheduleRetryOrFallback();
             return;
         }
@@ -134,11 +142,13 @@ internal partial class StripWindow : Window
 
         if (NativeTaskbar.SetParent(_handle, _taskbarHandle) == nint.Zero)
         {
+            DeskLogger.Info("TryDock: SetParent failed");
             ScheduleRetryOrFallback();
             return;
         }
 
         _docked = true;
+        DeskLogger.Info($"TryDock: docked to taskbar 0x{_taskbarHandle:X}");
         _attachRetriesLeft = AttachRetryCount;
         HookTaskbarEvents();
         Show();
@@ -176,6 +186,7 @@ internal partial class StripWindow : Window
         var area = SystemParameters.WorkArea;
         Left = area.Right - Width - 16;
         Top = area.Top + 8;
+        DeskLogger.Info($"FallbackStandalone at {Left},{Top}");
         Show();
     }
 
@@ -257,10 +268,12 @@ internal partial class StripWindow : Window
         var bounds = StripBounds.Calculate(handle, taskbarRect, layout, dpi, alignment, centerAligned, tiles);
         if (bounds is { } b)
         {
+            DeskLogger.Info($"placed at {b.Left},{b.Top} {b.Width}x{b.Height} (tiles={tiles})");
             _animator.MoveTo(b);
         }
         else
         {
+            DeskLogger.Info($"no room for {tiles} tiles; hiding");
             _animator.Hide();
         }
     }

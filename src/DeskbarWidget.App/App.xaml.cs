@@ -48,8 +48,39 @@ public partial class App : Application
         _service = new VirtualDesktopService();
         _watcher = new ThemeWatcher();
         _window = new StripWindow(_service, _watcher, alignment);
-        _window.Initialize();
-        _service.Start();
+
+        DispatcherUnhandledException += (_, args) =>
+        {
+            DeskLogger.Info($"UI crash: {args.Exception}");
+            MessageBox.Show(
+                $"DeskbarWidget crashed:{Environment.NewLine}{args.Exception.Message}" +
+                $"{Environment.NewLine}{Environment.NewLine}Details in %LocalAppData%\\DeskbarWidget\\deskbar.log",
+                "DeskbarWidget",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            args.Handled = true;
+            Shutdown(1);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            DeskLogger.Info($"Background crash: {args.ExceptionObject}");
+
+        try
+        {
+            _window.Initialize();
+            _service.Start();
+            DeskLogger.Info("running");
+        }
+        catch (Exception ex)
+        {
+            DeskLogger.Info($"Startup crash: {ex}");
+            MessageBox.Show(
+                $"DeskbarWidget failed to start:{Environment.NewLine}{ex.Message}" +
+                $"{Environment.NewLine}{Environment.NewLine}Details in %LocalAppData%\\DeskbarWidget\\deskbar.log",
+                "DeskbarWidget",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
