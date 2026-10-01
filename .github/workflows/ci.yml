@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore DeskbarWidget.sln
+
+    - name: Build solution
+      run: dotnet build DeskbarWidget.sln -c Release --no-restore
+
+    - name: Run unit tests
+      run: dotnet test DeskbarWidget.sln -c Release --no-build --verbosity normal

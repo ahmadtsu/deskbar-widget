@@ -1,0 +1,63 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v1.0.0)'
+        required: false
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Install Inno Setup
+      run: |
+        choco install innosetup --no-progress
+        echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
+
+    - name: Build portable binary and installer
+      shell: pwsh
+      run: |
+        .\scripts\build-installer.ps1
+
+    - name: Verify release artifacts exist
+      shell: pwsh
+      run: |
+        if (-not (Test-Path "installer/output/DeskbarWidget-Setup-x64.exe")) {
+          throw "installer/output/DeskbarWidget-Setup-x64.exe was not generated!"
+        }
+        if (-not (Test-Path "publish/DeskbarWidget.exe")) {
+          throw "publish/DeskbarWidget.exe was not generated!"
+        }
+        Write-Host "Artifacts verified successfully."
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name || inputs.tag_name }}
+        name: DeskbarWidget ${{ github.ref_name || inputs.tag_name }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: |
+          installer/output/DeskbarWidget-Setup-x64.exe
+          publish/DeskbarWidget.exe

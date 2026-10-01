@@ -11,4 +11,7 @@ dotnet publish "$root/src/DeskbarWidget.App/DeskbarWidget.App.csproj" `
     -o "$root/publish"
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE (is an old instance still running and locking the exe?)" }
 Copy-Item "$root/publish/DeskbarWidget.App.exe" "$root/publish/DeskbarWidget.exe" -Force
+if (Test-Path "$root/assets/eyes.ico") {
+    Copy-Item "$root/assets/eyes.ico" "$root/publish/eyes.ico" -Force
+}
 Write-Output "Published to $root/publish/DeskbarWidget.exe"
