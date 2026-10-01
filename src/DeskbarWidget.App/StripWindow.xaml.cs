@@ -186,8 +186,8 @@ internal partial class StripWindow : Window
         _taskbarHandle = NativeTaskbar.FindTaskbarHandle();
         if (_taskbarHandle == nint.Zero)
         {
-            DeskLogger.Info("TryDock: Shell_TrayWnd not found, using standalone mode");
-            FallbackStandalone();
+            DeskLogger.Info("TryDock: Shell_TrayWnd not found, scheduling retry");
+            ScheduleRetryOrFallback();
             return;
         }
 

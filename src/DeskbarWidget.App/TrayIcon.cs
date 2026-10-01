@@ -6,16 +6,24 @@ namespace DeskbarWidget.App;
 
 /// <summary>
 /// System tray icon (WinForms NotifyIcon, no extra packages) using the
-/// bundled eyes.ico. Right-click menu, v1: Exit only.
+/// bundled eyes.ico. Right-click context menu supports toggling desktop names display,
+/// toggling autostart on Windows startup, or exiting the application.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
     private readonly Forms.NotifyIcon _icon;
     private readonly Forms.ToolStripMenuItem _showNamesItem;
+    private readonly Forms.ToolStripMenuItem _autostartItem;
     private Icon? _ownedIcon;
     private bool _disposed;
 
-    public TrayIcon(Action onExit, bool showAllNames, Action<bool> onShowAllNamesChanged)
+    public TrayIcon(
+        Action onExit,
+        bool showAllNames,
+        Action<bool> onShowAllNamesChanged,
+        bool autostartEnabled = false,
+        Action<bool>? onAutostartChanged = null,
+        Func<bool>? getAutostartEnabled = null)
     {
         _ownedIcon = LoadIcon();
 
@@ -23,8 +31,17 @@ internal sealed class TrayIcon : IDisposable
         {
             CheckOnClick = true,
             Checked = showAllNames,
+            ToolTipText = "Show names for every desktop instead of only the active one",
         };
         _showNamesItem.Click += (_, _) => onShowAllNamesChanged(_showNamesItem.Checked);
+
+        _autostartItem = new Forms.ToolStripMenuItem("Autostart on startup")
+        {
+            CheckOnClick = true,
+            Checked = autostartEnabled,
+            ToolTipText = "Automatically start DeskbarWidget when Windows logs in",
+        };
+        _autostartItem.Click += (_, _) => onAutostartChanged?.Invoke(_autostartItem.Checked);
 
         var exit = new Forms.ToolStripMenuItem("Exit");
         exit.Click += (_, _) => onExit();
@@ -32,8 +49,18 @@ internal sealed class TrayIcon : IDisposable
         var menu = new Forms.ContextMenuStrip
         {
             RenderMode = Forms.ToolStripRenderMode.System,
+            ShowItemToolTips = true,
         };
+        menu.Opening += (_, _) =>
+        {
+            if (getAutostartEnabled is not null)
+            {
+                _autostartItem.Checked = getAutostartEnabled();
+            }
+        };
+
         menu.Items.Add(_showNamesItem);
+        menu.Items.Add(_autostartItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(exit);
 
@@ -52,6 +79,14 @@ internal sealed class TrayIcon : IDisposable
     {
         _showNamesItem.Checked = showAllNames;
     }
+
+    public void SetAutostart(bool autostartEnabled)
+    {
+        _autostartItem.Checked = autostartEnabled;
+    }
+
+    internal Forms.ToolStripMenuItem AutostartMenuItem => _autostartItem;
+    internal Forms.ToolStripMenuItem ShowNamesMenuItem => _showNamesItem;
 
     public void Dispose()
     {

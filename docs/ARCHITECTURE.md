@@ -10,12 +10,14 @@
 - `src/DeskbarWidget.Core` — `VirtualDesktopService`: cached
   `DesktopInfo{Number,Guid,Name}` snapshot + current GUID, `desktop_changed` /
   `desktops_updated` events, coalesced notification batches, 500 ms poll
-  fallback when the shell won't push, shell-unreachable tolerance. v1 ops:
-  list / current / switch only.
+  fallback when the shell won't push, shell-unreachable tolerance. `AutostartService`:
+  encapsulates `HKCU\...\CurrentVersion\Run` registration, quoted paths, and existence
+  verification. v1 ops: list / current / switch only.
 - `src/DeskbarWidget.App` — WPF: invisible host + `StripWindow` (WS_CHILD of
   `Shell_TrayWnd`), free-gap anchor (UIA probe of tray icons + icon cluster),
   `DesktopsStripControl` squircle tiles, `ThemeWatcher` (Personalize registry
-  + accent), `--selfcheck` / autostart switches.
+  + accent), `TrayIcon` (system tray menu with desktop names and autostart toggles),
+  `--selfcheck` / autostart switches.
 - `tests/DeskbarWidget.Tests` — pure-logic tests (cache diff, label/tile
   state, tier-probe ordering with fakes). No live COM in tests.
 
