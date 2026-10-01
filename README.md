@@ -25,15 +25,16 @@ Native-feel Windows virtual-desktops strip, pinned to the taskbar.
    `DeskbarWidget.exe` if you like).
 3. Run it. On Windows 11 the strip docks into the taskbar automatically.
    If the taskbar refuses hosting, it falls back to a small standalone bar.
-4. Optional autostart: run `DeskbarWidget.exe --register-autostart`
-   (removes with `--unregister-autostart`).
+4. Autostart on startup: enabled by default. You can disable or enable it
+   anytime via the system tray icon, or run `DeskbarWidget.exe --unregister-autostart`
+   (re-enables with `--register-autostart`).
 
 ## Usage
 
 - Click a desktop tile to switch desktops.
 - Right-click any desktop tile to rename or delete it.
-- Right-click the system tray icon to toggle "Show all desktop names" (persisted in registry) or exit.
-- `--selfcheck`: prints Windows build, COM tier, desktops + current, exits.
+- Right-click the system tray icon to toggle "Show all desktop names", toggle "Autostart on startup" (persisted in registry), or exit.
+- `--selfcheck`: prints Windows build, COM tier, autostart status, desktops + current, exits.
   Useful for bug reports on new Windows builds.
 
 ## Build

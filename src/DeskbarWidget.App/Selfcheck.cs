@@ -46,6 +46,11 @@ internal static class Selfcheck
         Check("acquire COM interfaces", () => api.Available() ? "usable" : throw new VirtualDesktopException("unavailable"));
         Check("supports desktop names", () => api.SupportsNames.ToString());
         Check("supports per-desktop wallpaper", () => api.SupportsWallpaper.ToString());
+        Check("autostart registered", () =>
+        {
+            var autostart = new AutostartService();
+            return autostart.CheckIsEnabled() ? "enabled" : "disabled";
+        });
 
         List<DesktopInfo>? desktops = null;
         Check("list desktops", () =>

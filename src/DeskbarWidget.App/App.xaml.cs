@@ -1,7 +1,6 @@
 using System.Windows;
 using DeskbarWidget.App.Themes;
 using DeskbarWidget.Core;
-using Microsoft.Win32;
 
 namespace DeskbarWidget.App;
 
@@ -11,9 +10,7 @@ namespace DeskbarWidget.App;
 /// </summary>
 public partial class App : System.Windows.Application
 {
-    private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string RunValue = "DeskbarWidget";
-
+    private readonly AutostartService _autostartService = new();
     private VirtualDesktopService? _service;
     private ThemeWatcher? _watcher;
     private StripWindow? _window;
@@ -29,13 +26,13 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        if (args.Contains("--register-autostart"))
+        if (args.Contains("--register-autostart") || args.Contains("--enable-autostart"))
         {
             Shutdown(RegisterAutostart());
             return;
         }
 
-        if (args.Contains("--unregister-autostart"))
+        if (args.Contains("--unregister-autostart") || args.Contains("--disable-autostart"))
         {
             Shutdown(UnregisterAutostart());
             return;
@@ -65,6 +62,15 @@ public partial class App : System.Windows.Application
             : "Left";
 
         var showAllNames = AppSettings.ShowAllDesktopNames;
+
+        // Autostart on startup is the default behavior:
+        // Register unless explicitly disabled by user in settings.
+        if (AppSettings.AutostartEnabled)
+        {
+            _autostartService.Enable();
+        }
+
+        var autostartEnabled = _autostartService.CheckIsEnabled();
         _service = new VirtualDesktopService();
         _watcher = new ThemeWatcher();
         _window = new StripWindow(_service, _watcher, alignment, showAllNames);
@@ -86,11 +92,18 @@ public partial class App : System.Windows.Application
 
         try
         {
-            _tray = new TrayIcon(Shutdown, showAllNames, OnShowAllNamesChanged);
+            _tray = new TrayIcon(
+                onExit: Shutdown,
+                showAllNames: showAllNames,
+                onShowAllNamesChanged: OnShowAllNamesChanged,
+                autostartEnabled: autostartEnabled,
+                onAutostartChanged: OnAutostartChanged,
+                getAutostartEnabled: () => _autostartService.CheckIsEnabled());
+
             _window.Initialize();
             _service.Start();
             _tray.Show();
-            DeskLogger.Info("running");
+            DeskLogger.Info($"running (autostart={autostartEnabled})");
         }
         catch (Exception ex)
         {
@@ -112,6 +125,13 @@ public partial class App : System.Windows.Application
         _window?.SetShowAllNames(showAllNames);
     }
 
+    private void OnAutostartChanged(bool enabled)
+    {
+        DeskLogger.Info($"tray: toggle autostart={enabled}");
+        AppSettings.AutostartEnabled = enabled;
+        _tray?.SetAutostart(_autostartService.CheckIsEnabled());
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         DeskLogger.Info($"OnExit code={e.ApplicationExitCode}");
@@ -125,12 +145,15 @@ public partial class App : System.Windows.Application
     {
         try
         {
-            var exe = Environment.ProcessPath ?? string.Empty;
-            using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true)
-                ?? Registry.CurrentUser.CreateSubKey(RunKey);
-            key?.SetValue(RunValue, $"\"{exe}\"");
-            Console.WriteLine("Autostart registered.");
-            return 0;
+            AppSettings.AutostartEnabled = true;
+            if (new AutostartService().CheckIsEnabled())
+            {
+                Console.WriteLine("Autostart registered.");
+                return 0;
+            }
+
+            Console.Error.WriteLine("Failed to register autostart.");
+            return 1;
         }
         catch (Exception ex)
         {
@@ -143,8 +166,7 @@ public partial class App : System.Windows.Application
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-            key?.DeleteValue(RunValue, throwOnMissingValue: false);
+            AppSettings.AutostartEnabled = false;
             Console.WriteLine("Autostart removed.");
             return 0;
         }

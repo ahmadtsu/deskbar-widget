@@ -18,6 +18,9 @@ carry a one-line header pointing here.
   retry/re-dock, `NativeMethods`/`WindowsPolicy` helpers, `ThemeService` /
   `Themed` behavior and Win11 Light/Dark resource tokens (re-skinned to our
   squircle number tiles).
+- What we adapted for autostart: `AutostartService` adapting `AutostartAdapter`
+  pattern (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` registration,
+  quoted process path, and executable existence verification).
 
 ```
 MIT License
@@ -59,6 +62,9 @@ SOFTWARE.
 - What we adapted for desktop creation: right-click "Create New Desktop" menu
   (`WorkspaceButton.create_new_desktop` in `windows_desktops.py`), and COM
   `CreateDesktopW` invocation (`com.create`).
+- What we adapted for autostart: startup enable/disable tray menu item toggle and
+  CLI command switches (`--enable-autostart` / `--disable-autostart`) inspired by
+  YASB's `tray.py` and `cli.py`.
 
 ```
 MIT License
