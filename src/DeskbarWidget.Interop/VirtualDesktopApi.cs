@@ -236,6 +236,48 @@ public sealed class VirtualDesktopApi
     }
 
     /// <summary>
+    /// Create a desktop and return its GUID (YASB com.create).
+    /// </summary>
+    public Guid Create()
+    {
+        var s = Ensure();
+        switch (s.Tier)
+        {
+            case VirtualDesktopTiers.V26100:
+            {
+                ThrowIfFailed(s.Manager26100!.CreateDesktopW(out var d), "CreateDesktopW");
+                return GetIdModern(d);
+            }
+            case VirtualDesktopTiers.V22631:
+            {
+                ThrowIfFailed(s.Manager22631!.CreateDesktopW(out var d), "CreateDesktopW");
+                return GetIdModern(d);
+            }
+            case VirtualDesktopTiers.V22621:
+            {
+                ThrowIfFailed(s.Manager22621!.CreateDesktopW(out var d), "CreateDesktopW");
+                return GetIdModern(d);
+            }
+            case VirtualDesktopTiers.V22449:
+            case VirtualDesktopTiers.V21313:
+            {
+                ThrowIfFailed(s.Manager21313!.CreateDesktopW(IntPtr.Zero, out var d), "CreateDesktopW");
+                return GetId21313(d);
+            }
+            case VirtualDesktopTiers.V20231:
+            {
+                ThrowIfFailed(s.Manager20231!.CreateDesktopW(IntPtr.Zero, out var d), "CreateDesktopW");
+                return GetId20231(d);
+            }
+            default:
+            {
+                ThrowIfFailed(s.ManagerWin10!.CreateDesktopW(out var d), "CreateDesktopW");
+                return GetIdWin10(d);
+            }
+        }
+    }
+
+    /// <summary>
     /// Rename a desktop (YASB com.rename).
     /// </summary>
     public void Rename(Guid guid, string name)

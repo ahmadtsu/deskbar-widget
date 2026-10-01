@@ -123,6 +123,10 @@ internal partial class StripWindow : Window
         _service.DesktopsUpdated += (_, e) => Dispatcher.BeginInvoke(() =>
         {
             Strip.Rebuild(_service.GetDesktops(), e.Index);
+            if (_standalone)
+            {
+                Width = Math.Max(240, Strip.ComputeDesiredContentWidth() + 16);
+            }
             UpdatePosition();
         });
         _watcher.Changed += (_, snapshot) => Dispatcher.BeginInvoke(() =>

@@ -12,6 +12,7 @@ public interface IDesktopReader
     void SwitchTo(Guid guid);
     void Remove(Guid guid);
     void Rename(Guid guid, string name);
+    Guid Create();
 }
 
 public sealed class VirtualDesktopApiAdapter(VirtualDesktopApi api) : IDesktopReader
@@ -21,4 +22,5 @@ public sealed class VirtualDesktopApiAdapter(VirtualDesktopApi api) : IDesktopRe
     public void SwitchTo(Guid guid) => api.SwitchTo(guid);
     public void Remove(Guid guid) => api.Remove(guid);
     public void Rename(Guid guid, string name) => api.Rename(guid, name);
+    public Guid Create() => api.Create();
 }

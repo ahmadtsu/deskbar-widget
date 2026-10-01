@@ -58,6 +58,22 @@ internal sealed class FakeReader : IDesktopReader
             Desktops[idx] = new DesktopData(target.Number, target.Guid, name);
         }
     }
+
+    public int CreatedCount;
+
+    public Guid Create()
+    {
+        if (Fail)
+        {
+            throw new VirtualDesktopException("shell down");
+        }
+
+        CreatedCount++;
+        var newGuid = Guid.NewGuid();
+        var nextNum = Desktops.Count + 1;
+        Desktops.Add(new DesktopData(nextNum, newGuid, string.Empty));
+        return newGuid;
+    }
 }
 
 public sealed class VirtualDesktopServiceTests
@@ -247,5 +263,31 @@ public sealed class VirtualDesktopServiceTests
 
         Assert.Throws<VirtualDesktopException>(() => svc.RenameDesktop(9, "New Name"));
         Assert.Empty(fake.Renamed);
+    }
+
+    [Fact]
+    public void CreateDesktop_Creates_AndBroadcastsNewSet()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+        DesktopsUpdatedEventArgs? updated = null;
+        svc.DesktopsUpdated += (_, e) => updated = e;
+
+        var guid = svc.CreateDesktop();
+
+        Assert.Equal(1, fake.CreatedCount);
+        Assert.NotEqual(Guid.Empty, guid);
+        Assert.True(WaitFor(() => updated is not null));
+        Assert.Equal(3, svc.GetDesktops().Count);
+    }
+
+    [Fact]
+    public void CreateDesktop_WhenFails_Throws()
+    {
+        var fake = TwoDesktops();
+        fake.Fail = true;
+        using var svc = new VirtualDesktopService(fake);
+
+        Assert.Throws<VirtualDesktopException>(() => svc.CreateDesktop());
     }
 }
