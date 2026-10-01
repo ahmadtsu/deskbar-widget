@@ -33,8 +33,9 @@ Native-feel Windows virtual-desktops strip, pinned to the taskbar.
 
 - Click a desktop tile to switch desktops.
 - Right-click any desktop tile to rename or delete it.
-- Right-click the system tray icon to toggle "Show all desktop names", toggle "Autostart on startup" (persisted in registry), or exit.
-- `--selfcheck`: prints Windows build, COM tier, autostart status, desktops + current, exits.
+- Right-click the system tray icon to toggle "Show all desktop names", toggle "Autostart on startup", click "Open config folder", or exit.
+- Configuration: Persisted as JSON in `~/.config/DeskbarWidget/config.json` (or `%APPDATA%\DeskbarWidget\config.json`, or overridden via `DESKBAR_CONFIG_HOME`). Supports hot-reloading: changes made to `config.json` take effect immediately on save.
+- `--selfcheck`: prints Windows build, COM tier, autostart status, configuration file status, desktops + current, exits.
   Useful for bug reports on new Windows builds.
 
 ## Build

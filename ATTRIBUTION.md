@@ -65,6 +65,10 @@ SOFTWARE.
 - What we adapted for autostart: startup enable/disable tray menu item toggle and
   CLI command switches (`--enable-autostart` / `--disable-autostart`) inspired by
   YASB's `tray.py` and `cli.py`.
+- What we adapted for configuration: dotfiles-first storage convention
+  (`~/.config/DeskbarWidget/config.json` with environment variable override and
+  `%APPDATA%` fallback) and live configuration file watching / reload patterns
+  inspired by YASB's `settings.py`, `config.py`, and `watcher.py`.
 
 ```
 MIT License

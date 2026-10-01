@@ -2,6 +2,7 @@
 // prints build, COM tier, desktops + current without touching anything.
 // Exit code 0 = all checks pass, 1 = any failure.
 
+using System.IO;
 using System.Runtime.InteropServices;
 using DeskbarWidget.Core;
 using DeskbarWidget.Interop;
@@ -50,6 +51,11 @@ internal static class Selfcheck
         {
             var autostart = new AutostartService();
             return autostart.CheckIsEnabled() ? "enabled" : "disabled";
+        });
+        Check("configuration file", () =>
+        {
+            var configPath = ConfigService.Instance.ConfigFilePath;
+            return File.Exists(configPath) ? $"exists ({configPath})" : $"defaults active ({configPath})";
         });
 
         List<DesktopInfo>? desktops = null;

@@ -23,7 +23,8 @@ internal sealed class TrayIcon : IDisposable
         Action<bool> onShowAllNamesChanged,
         bool autostartEnabled = false,
         Action<bool>? onAutostartChanged = null,
-        Func<bool>? getAutostartEnabled = null)
+        Func<bool>? getAutostartEnabled = null,
+        Action? onOpenConfigFolder = null)
     {
         _ownedIcon = LoadIcon();
 
@@ -42,6 +43,12 @@ internal sealed class TrayIcon : IDisposable
             ToolTipText = "Automatically start DeskbarWidget when Windows logs in",
         };
         _autostartItem.Click += (_, _) => onAutostartChanged?.Invoke(_autostartItem.Checked);
+
+        var openConfigItem = new Forms.ToolStripMenuItem("Open config folder")
+        {
+            ToolTipText = "Open the configuration folder in File Explorer",
+        };
+        openConfigItem.Click += (_, _) => onOpenConfigFolder?.Invoke();
 
         var exit = new Forms.ToolStripMenuItem("Exit");
         exit.Click += (_, _) => onExit();
@@ -62,6 +69,11 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add(_showNamesItem);
         menu.Items.Add(_autostartItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
+        if (onOpenConfigFolder is not null)
+        {
+            menu.Items.Add(openConfigItem);
+            menu.Items.Add(new Forms.ToolStripSeparator());
+        }
         menu.Items.Add(exit);
 
         _icon = new Forms.NotifyIcon

@@ -61,6 +61,10 @@ public partial class App : System.Windows.Application
             ? "Right"
             : "Left";
 
+        // Connect logger to ConfigService early
+        ConfigService.Instance.Logger = DeskLogger.Info;
+        ConfigService.Instance.ConfigChanged += OnExternalConfigChanged;
+
         var showAllNames = AppSettings.ShowAllDesktopNames;
 
         // Autostart on startup is the default behavior:
@@ -98,12 +102,13 @@ public partial class App : System.Windows.Application
                 onShowAllNamesChanged: OnShowAllNamesChanged,
                 autostartEnabled: autostartEnabled,
                 onAutostartChanged: OnAutostartChanged,
-                getAutostartEnabled: () => _autostartService.CheckIsEnabled());
+                getAutostartEnabled: () => _autostartService.CheckIsEnabled(),
+                onOpenConfigFolder: OnOpenConfigFolder);
 
             _window.Initialize();
             _service.Start();
             _tray.Show();
-            DeskLogger.Info($"running (autostart={autostartEnabled})");
+            DeskLogger.Info($"running (autostart={autostartEnabled}, config={AppSettings.ConfigFilePath})");
         }
         catch (Exception ex)
         {
@@ -115,6 +120,41 @@ public partial class App : System.Windows.Application
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(1);
+        }
+    }
+
+    private void OnExternalConfigChanged(object? sender, DeskbarConfig config)
+    {
+        DeskLogger.Info($"config file reloaded (showAllNames={config.ShowAllDesktopNames}, autostart={config.AutostartEnabled})");
+        Dispatcher.InvokeAsync(() =>
+        {
+            _window?.SetShowAllNames(config.ShowAllDesktopNames);
+            _tray?.SetShowAllNames(config.ShowAllDesktopNames);
+
+            var currentAutostart = _autostartService.CheckIsEnabled();
+            if (config.AutostartEnabled != currentAutostart)
+            {
+                _autostartService.SetAutostart(config.AutostartEnabled);
+                _tray?.SetAutostart(_autostartService.CheckIsEnabled());
+            }
+        });
+    }
+
+    private void OnOpenConfigFolder()
+    {
+        try
+        {
+            var dir = AppSettings.ConfigDirectory;
+            System.IO.Directory.CreateDirectory(dir);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = dir,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            DeskLogger.Info($"Failed to open config folder: {ex.Message}");
         }
     }
 
@@ -135,6 +175,8 @@ public partial class App : System.Windows.Application
     protected override void OnExit(ExitEventArgs e)
     {
         DeskLogger.Info($"OnExit code={e.ApplicationExitCode}");
+        ConfigService.Instance.ConfigChanged -= OnExternalConfigChanged;
+        ConfigService.Instance.Dispose();
         _tray?.Dispose();
         _service?.Dispose();
         _watcher?.Dispose();
