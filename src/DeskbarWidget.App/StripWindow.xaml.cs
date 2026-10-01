@@ -357,6 +357,28 @@ internal partial class StripWindow : Window
         Show();
     }
 
+    public void HandleDisplaySettingsChanged()
+    {
+        if (_standalone || _handle == nint.Zero)
+        {
+            return;
+        }
+
+        DeskLogger.Info($"StripWindow (0x{_handle:X}, taskbar=0x{_taskbarHandle:X}): HandleDisplaySettingsChanged");
+        _probe.Invalidate();
+        _lastLayout = null;
+        if (_taskbarHandle != nint.Zero && NativeTaskbar.IsWindow(_taskbarHandle))
+        {
+            _lastDpi = NativeTaskbar.GetDpiForWindow(_taskbarHandle) / 96.0;
+        }
+
+        _settleDeadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(SettleMs);
+        _refreshLayoutElements = true;
+        _repositionTimer.Stop();
+        _repositionTimer.Start();
+        UpdatePosition(refreshLayoutElements: true);
+    }
+
     // ---- positioning ----
 
     private void UpdatePosition(bool refreshLayoutElements = true)
@@ -391,14 +413,12 @@ internal partial class StripWindow : Window
             NativeTaskbar.SetParent(_handle, _taskbarHandle);
         }
 
-        if (!NativeTaskbar.GetWindowRect(_taskbarHandle, out var r))
+        if (!NativeTaskbar.TryGetVisibleTaskbarRect(_taskbarHandle, out var taskbarRect))
         {
-            return;
-        }
-
-        var taskbarRect = new Rect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
-        if (taskbarRect.Width <= 0 || taskbarRect.Height <= 0)
-        {
+            if (DateTime.UtcNow < _settleDeadline)
+            {
+                _repositionTimer.Start();
+            }
             return;
         }
 
@@ -531,8 +551,17 @@ internal partial class StripWindow : Window
         }
     }
 
+    private const int WM_DISPLAYCHANGE = 0x007E;
+    private const int WM_DPICHANGED = 0x02E0;
+
     private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
     {
+        if (msg is WM_DISPLAYCHANGE or WM_DPICHANGED)
+        {
+            HandleDisplaySettingsChanged();
+            return nint.Zero;
+        }
+
         if (_taskbarCreatedMsg != 0 && msg == _taskbarCreatedMsg)
         {
             if (_isSecondary)

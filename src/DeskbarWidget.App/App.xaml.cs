@@ -16,9 +16,21 @@ public partial class App : System.Windows.Application
     private StripWindowManager? _windowManager;
     private TrayIcon? _tray;
     private Mutex? _instanceMutex;
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetProcessDpiAwarenessContext(nint dpiContext);
+
+    private const int DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4;
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        try
+        {
+            SetProcessDpiAwarenessContext((nint)DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+        catch
+        {
+        }
+
         var args = e.Args.Select(a => a.ToLowerInvariant()).ToArray();
         if (args.Any(a => a is "--selfcheck" or "--help" or "-h" or "-?" or "/?"))
         {

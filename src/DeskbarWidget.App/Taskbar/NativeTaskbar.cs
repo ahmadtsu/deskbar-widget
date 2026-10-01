@@ -52,6 +52,24 @@ internal static class NativeTaskbar
         public nint lParam;
     }
 
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public uint cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern nint MonitorFromWindow(nint hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern nint FindWindow(string lpClassName, string? lpWindowName);
 
@@ -277,6 +295,55 @@ internal static class NativeTaskbar
             rect = default;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Checks if the taskbar is visible on its target monitor, accounting for auto-hide.
+    /// Adapted from EverythingToolbar TryGetVisibleTaskbarRect (MIT © 2023 Stephan Rumswinkel).
+    /// </summary>
+    internal static bool TryGetVisibleTaskbarRect(nint taskbarHandle, out System.Windows.Rect taskbarRect)
+    {
+        taskbarRect = System.Windows.Rect.Empty;
+        if (!GetWindowRect(taskbarHandle, out var r))
+        {
+            return false;
+        }
+
+        int taskbarWidth = r.Right - r.Left;
+        int taskbarHeight = r.Bottom - r.Top;
+        if (taskbarWidth <= 0 || taskbarHeight <= 0)
+        {
+            return false;
+        }
+
+        taskbarRect = new System.Windows.Rect(r.Left, r.Top, taskbarWidth, taskbarHeight);
+
+        if (!IsTaskbarAutoHiding())
+        {
+            return true;
+        }
+
+        var monitor = MonitorFromWindow(taskbarHandle, MONITOR_DEFAULTTONEAREST);
+        if (monitor == nint.Zero)
+        {
+            return true;
+        }
+
+        var mi = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(monitor, ref mi))
+        {
+            return true;
+        }
+
+        var mon = mi.rcMonitor;
+        int visibleWidth = Math.Max(0, Math.Min(r.Right, mon.Right) - Math.Max(r.Left, mon.Left));
+        int visibleHeight = Math.Max(0, Math.Min(r.Bottom, mon.Bottom) - Math.Max(r.Top, mon.Top));
+
+        double dpiScale = GetDpiForWindow(taskbarHandle) / 96.0;
+        int tolerance = (int)Math.Ceiling(2 * dpiScale);
+
+        bool isVertical = taskbarHeight > taskbarWidth;
+        return isVertical ? visibleWidth >= taskbarWidth - tolerance : visibleHeight >= taskbarHeight - tolerance;
     }
 
     internal static nint SetParent(nint child, nint newParent)

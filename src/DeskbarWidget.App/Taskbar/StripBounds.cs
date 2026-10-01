@@ -71,18 +71,35 @@ internal static class StripBounds
         // The gap runs from the cluster edge to the nearest obstacle beyond it, falling back to the
         // taskbar edge. An unmeasurable cluster widens it to the whole taskbar, which still lands the
         // strip in the aligned corner because it is capped at its desired width below.
+        // Validate whether the icon cluster is actually located on this taskbar.
+        // A cluster with mismatched vertical bounds (e.g. from another monitor or pre-DPI coordinates)
+        // must not contaminate this taskbar's gap calculation.
+        Rect? cluster = null;
+        if (layout.IconCluster is { } c &&
+            c.Bottom > taskbarRectPx.Top && c.Top < taskbarRectPx.Bottom &&
+            c.Right > taskbarRectPx.Left && c.Left < taskbarRectPx.Right)
+        {
+            cluster = c;
+        }
+
+        // Only consider obstacles that vertically overlap this taskbar
+        var relevantObstacles = layout.Obstacles
+            .Where(o => o.Bottom > taskbarRectPx.Top && o.Top < taskbarRectPx.Bottom &&
+                        o.Right > taskbarRectPx.Left && o.Left < taskbarRectPx.Right)
+            .ToList();
+
         double gapStart;
         double gapEnd;
 
         if (leftOnCentered)
         {
-            gapEnd = layout.IconCluster?.Left ?? taskbarRectPx.Right;
-            gapStart = layout.Obstacles.Select(o => o.Right).Where(x => x <= gapEnd).Append(taskbarRectPx.Left).Max();
+            gapEnd = cluster?.Left ?? taskbarRectPx.Right;
+            gapStart = relevantObstacles.Select(o => o.Right).Where(x => x <= gapEnd).Append(taskbarRectPx.Left).Max();
         }
         else
         {
-            gapStart = layout.IconCluster?.Right ?? taskbarRectPx.Left;
-            gapEnd = layout.Obstacles.Select(o => o.Left).Where(x => x >= gapStart).Append(taskbarRectPx.Right).Min();
+            gapStart = cluster?.Right ?? taskbarRectPx.Left;
+            gapEnd = relevantObstacles.Select(o => o.Left).Where(x => x >= gapStart).Append(taskbarRectPx.Right).Min();
         }
 
         int padding = (int)(HorizontalPaddingDip * dpiScale);
