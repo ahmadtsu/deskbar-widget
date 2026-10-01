@@ -31,6 +31,7 @@ internal partial class DesktopsStrip
     public DesktopsStrip()
     {
         InitializeComponent();
+        ContextMenu = BuildBackgroundMenu();
     }
 
     public int TileCount => Tiles.Items.Count;
@@ -111,6 +112,7 @@ internal partial class DesktopsStrip
     /// Tile context menu (adapted from YASB WorkspaceButton context menu):
     /// - Rename (opens YASB-styled floating popup input dialog)
     /// - Delete (disabled while a single desktop remains, like the shell itself)
+    /// - Create New Desktop (creates a new desktop via COM, matching YASB com.create)
     /// </summary>
     private ContextMenu BuildTileMenu(TileButton btn, int number, int desktopCount)
     {
@@ -154,7 +156,50 @@ internal partial class DesktopsStrip
                 DeskLogger.Info($"delete failed: {ex.Message}");
             }
         };
-        return new ContextMenu { Items = { rename, delete } };
+
+        var create = new MenuItem
+        {
+            Header = "Create New Desktop",
+            // Segoe MDL2 / Fluent Add glyph (\uE710), matching EverythingToolbar menu icons.
+            Icon = "\uE710",
+        };
+        create.Click += (_, _) =>
+        {
+            try
+            {
+                DeskLogger.Info("create new desktop");
+                _service?.CreateDesktop();
+            }
+            catch (Exception ex)
+            {
+                DeskLogger.Info($"create failed: {ex.Message}");
+            }
+        };
+
+        return new ContextMenu { Items = { rename, delete, new Separator(), create } };
+    }
+
+    private ContextMenu BuildBackgroundMenu()
+    {
+        var create = new MenuItem
+        {
+            Header = "Create New Desktop",
+            Icon = "\uE710",
+        };
+        create.Click += (_, _) =>
+        {
+            try
+            {
+                DeskLogger.Info("create new desktop");
+                _service?.CreateDesktop();
+            }
+            catch (Exception ex)
+            {
+                DeskLogger.Info($"create failed: {ex.Message}");
+            }
+        };
+
+        return new ContextMenu { Items = { create } };
     }
 
     public void UpdateActive(int current)

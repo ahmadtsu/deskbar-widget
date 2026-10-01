@@ -160,6 +160,17 @@ public sealed class VirtualDesktopService : IDisposable
         ForceRefresh(updateButtons: true);
     }
 
+    /// <summary>
+    /// Create a new desktop (YASB service.create_desktop). Invalidates cache and
+    /// broadcasts the updated desktop set so the new tile appears immediately.
+    /// </summary>
+    public Guid CreateDesktop()
+    {
+        var guid = _reader.Create();
+        ForceRefresh(updateButtons: false);
+        return guid;
+    }
+
     public void ForceRefresh(bool updateButtons = false)
     {
         lock (_gate)
