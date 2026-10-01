@@ -70,6 +70,12 @@ internal partial class StripWindow : Window
     private DateTime _settleDeadline;
     private uint _taskbarCreatedMsg;
 
+    private Rect _lastTaskbarRect;
+    private TaskbarLayout? _lastLayout;
+    private double _lastDpi = 1.0;
+    private bool _lastCenterAligned;
+    private DispatcherTimer? _shrinkTimer;
+
     private readonly DispatcherTimer _repositionTimer = new()
     {
         Interval = TimeSpan.FromMilliseconds(RepositionMs),
@@ -108,18 +114,7 @@ internal partial class StripWindow : Window
             }
         };
 
-        _service.DesktopChanged += (_, index) => Dispatcher.BeginInvoke(() =>
-        {
-            Strip.UpdateActive(index);
-            // The active pill grows over ~200ms; re-fit the window once done.
-            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-            t.Tick += (_, _) =>
-            {
-                t.Stop();
-                UpdatePosition();
-            };
-            t.Start();
-        });
+        _service.DesktopChanged += (_, index) => Dispatcher.BeginInvoke(() => HandleDesktopChanged(index));
         _service.DesktopsUpdated += (_, e) => Dispatcher.BeginInvoke(() =>
         {
             Strip.Rebuild(_service.GetDesktops(), e.Index);
@@ -138,20 +133,98 @@ internal partial class StripWindow : Window
         _showAllNames = showAllNames;
         Dispatcher.BeginInvoke(() =>
         {
-            Strip.SetShowAllNames(showAllNames);
-            if (_standalone)
+            var currentDip = ActualWidth > 0 ? ActualWidth : Strip.ComputeDesiredContentWidth();
+            var targetDip = Strip.ComputeDesiredContentWidth(targetShowAllNames: showAllNames);
+
+            _shrinkTimer?.Stop();
+
+            if (targetDip >= currentDip - 0.5)
             {
-                Width = Math.Max(240, Strip.ComputeDesiredContentWidth() + 16);
+                ResizeToContent(targetDip);
             }
-            UpdatePosition();
-            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-            t.Tick += (_, _) =>
+
+            Strip.SetShowAllNames(showAllNames);
+
+            if (targetDip < currentDip - 0.5)
             {
-                t.Stop();
-                UpdatePosition();
-            };
-            t.Start();
+                _shrinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(220) };
+                _shrinkTimer.Tick += (_, _) =>
+                {
+                    _shrinkTimer.Stop();
+                    ResizeToContent(Strip.ComputeDesiredContentWidth());
+                };
+                _shrinkTimer.Start();
+            }
         });
+    }
+
+    private void HandleDesktopChanged(int newIndex)
+    {
+        var currentDip = ActualWidth > 0 ? ActualWidth : Strip.ComputeDesiredContentWidth();
+        var targetDip = Strip.ComputeDesiredContentWidth(targetActiveDesktop: newIndex);
+
+        _shrinkTimer?.Stop();
+
+        if (targetDip >= currentDip - 0.5)
+        {
+            // Expanding (or equal): immediately widen the window so the growing
+            // pill is never clipped by the window boundary during its animation.
+            ResizeToContent(targetDip);
+        }
+
+        Strip.UpdateActive(newIndex);
+
+        if (targetDip < currentDip - 0.5)
+        {
+            // Shrinking: keep the window wide while the old active pill
+            // smoothly shrinks over 200ms, then trim the transparent excess.
+            _shrinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(220) };
+            _shrinkTimer.Tick += (_, _) =>
+            {
+                _shrinkTimer.Stop();
+                ResizeToContent(Strip.ComputeDesiredContentWidth());
+            };
+            _shrinkTimer.Start();
+        }
+    }
+
+    private void ResizeToContent(double desiredContentDip)
+    {
+        if (_standalone)
+        {
+            Width = Math.Max(240, desiredContentDip + 16);
+            return;
+        }
+
+        if (!_docked || _handle == nint.Zero || _taskbarHandle == nint.Zero)
+        {
+            return;
+        }
+
+        if (_lastLayout is not { IsMeasurable: true } layout)
+        {
+            UpdatePosition();
+            return;
+        }
+
+        var contentPx = desiredContentDip * _lastDpi;
+        var tiles = Strip.TileCount;
+        var bounds = StripBounds.Calculate(
+            _taskbarHandle,
+            _lastTaskbarRect,
+            layout,
+            _lastDpi,
+            _alignment,
+            _lastCenterAligned,
+            tiles,
+            contentPx + _lastDpi);
+
+        if (bounds is { } b)
+        {
+            Width = b.Width / _lastDpi;
+            Height = b.Height / _lastDpi;
+            _animator?.SetBounds(b);
+        }
     }
 
     public void Initialize()
@@ -164,7 +237,7 @@ internal partial class StripWindow : Window
         // Theme first: tile measuring reads theme font tokens.
         var theme = _watcher.Current;
         TileTheme.ApplyTo(Strip, theme);
-        Strip.Attach(_service, _watcher, _showAllNames);
+        Strip.Attach(_service, _watcher, _showAllNames, _alignment);
         DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}, light={theme.IsLight} accent=#{theme.Accent.R:X2}{theme.Accent.G:X2}{theme.Accent.B:X2} showAllNames={_showAllNames}");
         TryDock();
     }
@@ -326,6 +399,11 @@ internal partial class StripWindow : Window
             return;
         }
 
+        _lastTaskbarRect = taskbarRect;
+        _lastLayout = layout;
+        _lastDpi = dpi;
+        _lastCenterAligned = centerAligned;
+
         DeskLogger.Info(
             $"probe: align={alignment} centered={centerAligned} dpi={dpi:F2} " +
             $"taskbar={taskbarRect} cluster={Fmt(layout.IconCluster)} " +
@@ -437,6 +515,7 @@ internal partial class StripWindow : Window
     private void Cleanup()
     {
         _repositionTimer.Stop();
+        _shrinkTimer?.Stop();
         if (_winEventHook != nint.Zero)
         {
             UnhookWinEvent(_winEventHook);

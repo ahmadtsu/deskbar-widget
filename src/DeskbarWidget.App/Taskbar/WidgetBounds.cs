@@ -10,8 +10,8 @@ internal readonly record struct WidgetBounds(int Left, int Top, int Width, int H
         new(
             Interpolate(from.Left, to.Left, progress),
             Interpolate(from.Top, to.Top, progress),
-            Interpolate(from.Width, to.Width, progress),
-            Interpolate(from.Height, to.Height, progress)
+            progress >= 1.0 ? to.Width : Math.Max(from.Width, to.Width),
+            progress >= 1.0 ? to.Height : Math.Max(from.Height, to.Height)
         );
 
     private static int Interpolate(int from, int to, double progress) =>

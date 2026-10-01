@@ -30,6 +30,16 @@ internal sealed class TaskbarWindowAnimator
         _progress.ValueChanged += OnProgressChanged;
     }
 
+    public WidgetBounds? CurrentBounds => _current;
+
+    public void SetBounds(WidgetBounds bounds, bool ensureVisible = false)
+    {
+        _from = bounds;
+        _target = bounds;
+        StopAnimation();
+        ApplyBounds(bounds, ensureVisible);
+    }
+
     public void MoveTo(WidgetBounds target)
     {
         if (_target == target)
@@ -46,6 +56,16 @@ internal sealed class TaskbarWindowAnimator
             _from = target;
             StopAnimation();
             ApplyBounds(target, ensureVisible: true);
+            return;
+        }
+
+        // If only size changed but position didn't, don't animate the HWND bounds with SetWindowPos
+        // (WPF handles content transitions smoothly; animating HWND size creates a moving clip rect).
+        if (from.Left == target.Left && from.Top == target.Top)
+        {
+            _from = target;
+            StopAnimation();
+            ApplyBounds(target);
             return;
         }
 

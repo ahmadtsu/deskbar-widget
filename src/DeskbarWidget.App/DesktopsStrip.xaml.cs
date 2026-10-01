@@ -36,14 +36,29 @@ internal partial class DesktopsStrip
     public int TileCount => Tiles.Items.Count;
     public bool ShowAllNames => _showAllNames;
 
-    public void Attach(VirtualDesktopService service, Themes.ThemeWatcher watcher, bool showAllNames = false)
+    public void Attach(VirtualDesktopService service, Themes.ThemeWatcher watcher, bool showAllNames = false, string alignment = "Left")
     {
         _service = service;
         _watcher = watcher;
         _showAllNames = showAllNames;
+        SetAlignment(alignment);
         var desktops = service.GetDesktops();
         _currentDesktop = service.GetCurrentDesktop().Number;
         Rebuild(desktops, _currentDesktop);
+    }
+
+    public void SetAlignment(string alignment)
+    {
+        if (string.Equals(alignment, "Right", StringComparison.OrdinalIgnoreCase))
+        {
+            Tiles.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
+            Tiles.Margin = new Thickness(0, 0, 8, 0);
+        }
+        else
+        {
+            Tiles.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+            Tiles.Margin = new Thickness(8, 0, 0, 0);
+        }
     }
 
     public void Rebuild(IReadOnlyList<DesktopInfo> desktops, int current)
@@ -213,15 +228,17 @@ internal partial class DesktopsStrip
     /// <summary>
     /// Computes the exact target DIP width needed to display all tiles without clipping.
     /// </summary>
-    public double ComputeDesiredContentWidth()
+    public double ComputeDesiredContentWidth(int? targetActiveDesktop = null, bool? targetShowAllNames = null)
     {
-        double width = 8; // Margin="8,0,0,0" on ItemsControl
+        var active = targetActiveDesktop ?? _currentDesktop;
+        var showAll = targetShowAllNames ?? _showAllNames;
+        double width = 8; // Margin on ItemsControl
         for (int i = 0; i < Tiles.Items.Count; i++)
         {
             if (Tiles.Items[i] is TileButton { Tag: int number })
             {
-                var isActive = number == _currentDesktop;
-                width += GetTileWidth(number, isActive);
+                var isActive = number == active;
+                width += GetTileWidth(number, isActive, showAll);
                 if (i < Tiles.Items.Count - 1)
                 {
                     width += 8; // Margin="0,0,8,0" between tiles
@@ -237,9 +254,10 @@ internal partial class DesktopsStrip
         return DesktopLabelPolicy.GetLabel(number, name, isActive, _showAllNames);
     }
 
-    private double GetTileWidth(int number, bool isActive)
+    private double GetTileWidth(int number, bool isActive, bool? showAll = null)
     {
-        if (_showAllNames || isActive)
+        var isShowingAll = showAll ?? _showAllNames;
+        if (isShowingAll || isActive)
         {
             var name = _names.TryGetValue(number, out var n) ? n : number.ToString();
             return CalculateTileWidth(name);
@@ -290,7 +308,10 @@ internal partial class DesktopsStrip
 
     private static void AnimateWidth(TileButton btn, double to)
     {
-        var from = double.IsNaN(btn.Width) ? (btn.ActualWidth > 0 ? btn.ActualWidth : InactiveWidth) : btn.Width;
+        var from = btn.ActualWidth > 0
+            ? btn.ActualWidth
+            : (double.IsNaN(btn.Width) ? InactiveWidth : btn.Width);
+
         if (Math.Abs(from - to) < 0.5)
         {
             btn.BeginAnimation(WidthProperty, null);
@@ -298,11 +319,15 @@ internal partial class DesktopsStrip
             return;
         }
 
-        btn.BeginAnimation(
-            WidthProperty,
-            new DoubleAnimation(from, to, GrowDuration)
-            {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
-            });
+        var anim = new DoubleAnimation(from, to, GrowDuration)
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+        };
+        anim.Completed += (_, _) =>
+        {
+            btn.BeginAnimation(WidthProperty, null);
+            btn.Width = to;
+        };
+        btn.BeginAnimation(WidthProperty, anim);
     }
 }
