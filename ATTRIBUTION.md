@@ -62,6 +62,9 @@ SOFTWARE.
 - What we adapted for desktop creation: right-click "Create New Desktop" menu
   (`WorkspaceButton.create_new_desktop` in `windows_desktops.py`), and COM
   `CreateDesktopW` invocation (`com.create`).
+- What we adapted for multi-monitor: multi-screen bar management concept from
+  YASB `bar_manager.py` (spawning workspace widgets across connected monitors synchronized
+  to a central virtual desktop service).
 - What we adapted for autostart: startup enable/disable tray menu item toggle and
   CLI command switches (`--enable-autostart` / `--disable-autostart`) inspired by
   YASB's `tray.py` and `cli.py`.

@@ -4,12 +4,12 @@ Native-feel Windows virtual-desktops strip, pinned to the taskbar.
 
 - Squircle number tiles (`1 2 3…`), click to switch, active tile follows the
   system accent. Light/dark follows Windows. Sits in the taskbar's free gap
-  like a stock element (WS_CHILD docked into `Shell_TrayWnd`).
+  like a stock element (WS_CHILD docked into `Shell_TrayWnd` and `Shell_SecondaryTrayWnd` across multi-monitor displays).
 - Stack: C# WPF on .NET 9, per-thread COM against the undocumented
   `IVirtualDesktopManagerInternal` family with tier probing + push
   notifications (translated blueprint: YASB Reborn, MIT). Taskbar anchoring
   adapted from EverythingToolbar (MIT). See `ATTRIBUTION.md`.
-- v1 scope: switch + active only. Portable single-file `DeskbarWidget.exe`.
+- Multi-monitor: Spawns instances across `Shell_SecondaryTrayWnd` so multi-monitor setups see the workspace strip on every display. Portable single-file `DeskbarWidget.exe`.
 
 ## Prerequisites
 

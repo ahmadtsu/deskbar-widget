@@ -13,13 +13,14 @@
   fallback when the shell won't push, shell-unreachable tolerance. `AutostartService`:
   encapsulates `HKCU\...\CurrentVersion\Run` registration, quoted paths, and existence
   verification. v1 ops: list / current / switch only.
-- `src/DeskbarWidget.App` — WPF: invisible host + `StripWindow` (WS_CHILD of
-  `Shell_TrayWnd`), free-gap anchor (UIA probe of tray icons + icon cluster),
-  `DesktopsStripControl` squircle tiles, `ThemeWatcher` (Personalize registry
-  + accent), `TrayIcon` (system tray menu with desktop names and autostart toggles),
-  `--selfcheck` / autostart switches.
+- `src/DeskbarWidget.App` — WPF: invisible host + `StripWindowManager`
+  managing `StripWindow` instances (`WS_CHILD` docked into `Shell_TrayWnd` and
+  `Shell_SecondaryTrayWnd` across multi-monitor setups), free-gap anchor (UIA
+  probe of tray icons + icon cluster), `DesktopsStrip` squircle tiles,
+  `ThemeWatcher` (Personalize registry + accent), `TrayIcon` (system tray menu
+  with desktop names and autostart toggles), `--selfcheck` / autostart switches.
 - `tests/DeskbarWidget.Tests` — pure-logic tests (cache diff, label/tile
-  state, tier-probe ordering with fakes). No live COM in tests.
+  state, tier-probe ordering with fakes, multi-monitor taskbar bounds). No live COM in tests.
 
 ## Runtime flow
 
@@ -28,9 +29,9 @@
 2. `DesktopNotificationListener` registers COM sink; shell pushes
    created/destroyed/moved/renamed/current-changed → service invalidates once
    per burst → UI diffs prev+curr tiles only.
-3. `TaskbarAnchor` reparents `StripWindow` into the taskbar, measures the
-   free gap (cluster right → next obstacle), `SetWindowPos` with glide;
-   re-measures on layout events, DPI/display change, Explorer restart.
+3. `StripWindowManager` discovers all taskbars (`Shell_TrayWnd` + `Shell_SecondaryTrayWnd`)
+   and docks `StripWindow` instances into each; measures the free gap (cluster right → next obstacle),
+   `SetWindowPos` with glide; re-measures on layout events, DPI/display change, Explorer restart.
 4. `ThemeWatcher` swaps Light/Dark tile tokens + accent fill live.
 
 See `ATTRIBUTION.md` for upstream sources.

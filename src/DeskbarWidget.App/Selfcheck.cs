@@ -57,6 +57,12 @@ internal static class Selfcheck
             var configPath = ConfigService.Instance.ConfigFilePath;
             return File.Exists(configPath) ? $"exists ({configPath})" : $"defaults active ({configPath})";
         });
+        Check("detect taskbars", () =>
+        {
+            var primary = Taskbar.NativeTaskbar.FindTaskbarHandle();
+            var secondary = Taskbar.NativeTaskbar.FindSecondaryTaskbarHandles();
+            return $"primary=0x{primary:X}, secondary={secondary.Count}";
+        });
 
         List<DesktopInfo>? desktops = null;
         Check("list desktops", () =>
