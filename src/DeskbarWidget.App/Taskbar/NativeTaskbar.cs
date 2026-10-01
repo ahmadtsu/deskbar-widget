@@ -55,6 +55,17 @@ internal static class NativeTaskbar
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern nint FindWindow(string lpClassName, string? lpWindowName);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern nint FindWindowEx(nint hWndParent, nint hWndChildAfter, string lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsWindow(nint hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsWindowVisible(nint hWnd);
+
     [DllImport("user32.dll", SetLastError = true)]
     private static extern nint GetWindow(nint hWnd, int uCmd);
 
@@ -108,11 +119,74 @@ internal static class NativeTaskbar
         }
     }
 
-    internal static bool IsClassicTaskbar()
+    internal static string GetWindowClassName(nint hwnd)
     {
         try
         {
-            nint taskbar = FindTaskbarHandle();
+            var sb = new StringBuilder(256);
+            return GetClassName(hwnd, sb, sb.Capacity) > 0 ? sb.ToString() : string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"NativeTaskbar.GetWindowClassName failed: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+    internal static bool IsSecondaryTaskbar(nint hwnd)
+    {
+        if (hwnd == nint.Zero)
+        {
+            return false;
+        }
+
+        return string.Equals(GetWindowClassName(hwnd), "Shell_SecondaryTrayWnd", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static IReadOnlyList<nint> FindSecondaryTaskbarHandles()
+    {
+        var list = new List<nint>();
+        try
+        {
+            nint hwnd = nint.Zero;
+            while ((hwnd = FindWindowEx(nint.Zero, hwnd, "Shell_SecondaryTrayWnd", null)) != nint.Zero)
+            {
+                if (IsWindow(hwnd) && IsWindowVisible(hwnd))
+                {
+                    list.Add(hwnd);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"NativeTaskbar.FindSecondaryTaskbarHandles failed: {ex.Message}");
+        }
+
+        return list;
+    }
+
+    internal static IReadOnlyList<nint> FindAllTaskbarHandles()
+    {
+        var list = new List<nint>();
+        var primary = FindTaskbarHandle();
+        if (primary != nint.Zero && IsWindow(primary))
+        {
+            list.Add(primary);
+        }
+
+        list.AddRange(FindSecondaryTaskbarHandles());
+        return list;
+    }
+
+    internal static bool IsClassicTaskbar(nint taskbar = 0)
+    {
+        try
+        {
+            if (taskbar == nint.Zero)
+            {
+                taskbar = FindTaskbarHandle();
+            }
+
             if (taskbar == nint.Zero)
             {
                 return false;

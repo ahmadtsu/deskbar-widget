@@ -97,7 +97,14 @@ internal partial class RenameWindow : Window
 
         double left = targetLeftDip + (targetWidthDip / 2) - (dialogWidth / 2);
 
-        var workArea = SystemParameters.WorkArea;
+        var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)screenPos.X, (int)screenPos.Y));
+        var workAreaPx = screen.WorkingArea;
+        var workArea = new Rect(
+            workAreaPx.Left / dpi.DpiScaleX,
+            workAreaPx.Top / dpi.DpiScaleY,
+            workAreaPx.Width / dpi.DpiScaleX,
+            workAreaPx.Height / dpi.DpiScaleY);
+
         // Float above the taskbar tile; if off-screen, flip below.
         double top = targetTopDip - dialogHeight + 4;
         if (top < workArea.Top)

@@ -59,8 +59,13 @@ internal partial class StripWindow : Window
     private readonly TaskbarLayoutProbe _probe = new();
     private TaskbarWindowAnimator? _animator;
 
+    private readonly EventHandler<int> _desktopChangedHandler;
+    private readonly EventHandler<DesktopsUpdatedEventArgs> _desktopsUpdatedHandler;
+    private readonly EventHandler<ThemeSnapshot> _themeChangedHandler;
+
     private nint _handle;
     private nint _taskbarHandle;
+    private readonly bool _isSecondary;
     private bool _docked;
     private bool _standalone;
     private int _attachRetriesLeft = AttachRetryCount;
@@ -83,12 +88,22 @@ internal partial class StripWindow : Window
     private WinEventProc? _winEventCallback;
     private nint _winEventHook;
 
-    public StripWindow(VirtualDesktopService service, ThemeWatcher watcher, string alignment, bool showAllNames = false)
+    public nint TaskbarHandle => _taskbarHandle;
+    public bool IsSecondary => _isSecondary;
+
+    public StripWindow(
+        VirtualDesktopService service,
+        ThemeWatcher watcher,
+        string alignment,
+        bool showAllNames = false,
+        nint taskbarHandle = 0)
     {
         _service = service;
         _watcher = watcher;
         _alignment = alignment == "Left" ? "Left" : "Right";
         _showAllNames = showAllNames;
+        _taskbarHandle = taskbarHandle;
+        _isSecondary = taskbarHandle != nint.Zero && NativeTaskbar.IsSecondaryTaskbar(taskbarHandle);
 
         InitializeComponent();
 
@@ -114,8 +129,8 @@ internal partial class StripWindow : Window
             }
         };
 
-        _service.DesktopChanged += (_, index) => Dispatcher.BeginInvoke(() => HandleDesktopChanged(index));
-        _service.DesktopsUpdated += (_, e) => Dispatcher.BeginInvoke(() =>
+        _desktopChangedHandler = (_, index) => Dispatcher.BeginInvoke(() => HandleDesktopChanged(index));
+        _desktopsUpdatedHandler = (_, e) => Dispatcher.BeginInvoke(() =>
         {
             Strip.Rebuild(_service.GetDesktops(), e.Index);
             if (_standalone)
@@ -124,12 +139,16 @@ internal partial class StripWindow : Window
             }
             UpdatePosition();
         });
-        _watcher.Changed += (_, snapshot) => Dispatcher.BeginInvoke(() =>
+        _themeChangedHandler = (_, snapshot) => Dispatcher.BeginInvoke(() =>
         {
             var a = snapshot.Accent;
             DeskLogger.Info($"theme: light={snapshot.IsLight} accent=#{a.R:X2}{a.G:X2}{a.B:X2}");
             TileTheme.ApplyTo(Strip, snapshot);
         });
+
+        _service.DesktopChanged += _desktopChangedHandler;
+        _service.DesktopsUpdated += _desktopsUpdatedHandler;
+        _watcher.Changed += _themeChangedHandler;
     }
 
     public void SetShowAllNames(bool showAllNames)
@@ -254,16 +273,20 @@ internal partial class StripWindow : Window
         {
             DeskLogger.Info(
                 $"TryDock: not dockable (build={Environment.OSVersion.Version.Build} " +
-                $"classic={NativeTaskbar.IsClassicTaskbar()} " +
-                $"tray=0x{NativeTaskbar.FindTaskbarHandle():X})");
+                $"classic={NativeTaskbar.IsClassicTaskbar(_taskbarHandle)} " +
+                $"tray=0x{_taskbarHandle:X} secondary={_isSecondary})");
             ScheduleRetryOrFallback();
             return;
         }
 
-        _taskbarHandle = NativeTaskbar.FindTaskbarHandle();
         if (_taskbarHandle == nint.Zero)
         {
-            DeskLogger.Info("TryDock: Shell_TrayWnd not found, scheduling retry");
+            _taskbarHandle = NativeTaskbar.FindTaskbarHandle();
+        }
+
+        if (_taskbarHandle == nint.Zero || !NativeTaskbar.IsWindow(_taskbarHandle))
+        {
+            DeskLogger.Info($"TryDock: Taskbar 0x{_taskbarHandle:X} not found or invalid, scheduling retry");
             ScheduleRetryOrFallback();
             return;
         }
@@ -281,19 +304,19 @@ internal partial class StripWindow : Window
         }
 
         _docked = true;
-        DeskLogger.Info($"TryDock: docked to taskbar 0x{_taskbarHandle:X}");
+        DeskLogger.Info($"TryDock: docked to taskbar 0x{_taskbarHandle:X} (secondary={_isSecondary})");
         _attachRetriesLeft = AttachRetryCount;
         HookTaskbarEvents();
         Show();
         UpdatePosition();
     }
 
-    private static bool CanDock() =>
-        Environment.OSVersion.Version.Build >= 22000 && !NativeTaskbar.IsClassicTaskbar();
+    private bool CanDock() =>
+        Environment.OSVersion.Version.Build >= 22000 && !NativeTaskbar.IsClassicTaskbar(_taskbarHandle);
 
     private void ScheduleRetryOrFallback()
     {
-        DeskLogger.Info($"ScheduleRetryOrFallback: retries left={_attachRetriesLeft}");
+        DeskLogger.Info($"ScheduleRetryOrFallback: retries left={_attachRetriesLeft} isSecondary={_isSecondary}");
         if (_attachRetriesLeft-- > 0)
         {
             _dockRetryTimer?.Stop();
@@ -310,6 +333,13 @@ internal partial class StripWindow : Window
                 TryDock();
             };
             _dockRetryTimer.Start();
+            return;
+        }
+
+        if (_isSecondary)
+        {
+            DeskLogger.Info($"Secondary taskbar 0x{_taskbarHandle:X} docking failed; closing window");
+            Close();
             return;
         }
 
@@ -346,8 +376,13 @@ internal partial class StripWindow : Window
             _taskbarHandle = NativeTaskbar.FindTaskbarHandle();
         }
 
-        if (_taskbarHandle == nint.Zero)
+        if (_taskbarHandle == nint.Zero || !NativeTaskbar.IsWindow(_taskbarHandle))
         {
+            if (_isSecondary)
+            {
+                DeskLogger.Info($"Secondary taskbar 0x{_taskbarHandle:X} no longer valid; closing window");
+                Close();
+            }
             return;
         }
 
@@ -500,6 +535,13 @@ internal partial class StripWindow : Window
     {
         if (_taskbarCreatedMsg != 0 && msg == _taskbarCreatedMsg)
         {
+            if (_isSecondary)
+            {
+                // Secondary taskbars will be recreated and re-synchronized by StripWindowManager
+                Close();
+                return nint.Zero;
+            }
+
             // Explorer restarted: give the new taskbar a moment, then re-dock.
             _docked = false;
             _taskbarHandle = nint.Zero;
@@ -518,8 +560,12 @@ internal partial class StripWindow : Window
 
     private void Cleanup()
     {
+        _service.DesktopChanged -= _desktopChangedHandler;
+        _service.DesktopsUpdated -= _desktopsUpdatedHandler;
+        _watcher.Changed -= _themeChangedHandler;
         _repositionTimer.Stop();
         _shrinkTimer?.Stop();
+        _dockRetryTimer?.Stop();
         if (_winEventHook != nint.Zero)
         {
             UnhookWinEvent(_winEventHook);

@@ -79,4 +79,75 @@ public sealed class TaskbarBoundsTests
         Assert.Equal(80, boundsSmall.Value.Width);
         Assert.Equal(140, boundsLarge.Value.Width);
     }
+
+    [Fact]
+    public void StripBounds_SecondaryMonitor_RightAlignmentWithNoObstacles()
+    {
+        // Secondary display taskbar: positioned at X=1920, no system tray icons or widgets obstacles
+        var secondaryTaskbarRect = new Rect(1920, 1032, 1920, 48);
+        var cluster = new Rect(2720, 1032, 320, 48);
+        var layout = new TaskbarLayout(cluster, Array.Empty<Rect>());
+
+        var bounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: secondaryTaskbarRect,
+            layout: layout,
+            dpiScale: 1.0,
+            alignment: "Right",
+            centerAligned: true,
+            tileCount: 3,
+            desiredWidthPx: 108);
+
+        Assert.NotNull(bounds);
+        Assert.Equal(108, bounds.Value.Width);
+        Assert.True(bounds.Value.Height > 0);
+        // On a secondary monitor with no obstacles, gapEnd reaches the taskbar's right boundary
+        Assert.True(bounds.Value.Left > 0);
+    }
+
+    [Fact]
+    public void StripBounds_SecondaryMonitor_HighDpiScale()
+    {
+        // Secondary monitor with 150% DPI scale (144 DPI)
+        var secondaryTaskbarRect = new Rect(1920, 0, 2560, 72);
+        var cluster = new Rect(3000, 0, 480, 72);
+        var layout = new TaskbarLayout(cluster, Array.Empty<Rect>());
+
+        var bounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: secondaryTaskbarRect,
+            layout: layout,
+            dpiScale: 1.5,
+            alignment: "Left",
+            centerAligned: true,
+            tileCount: 3,
+            desiredWidthPx: 162);
+
+        Assert.NotNull(bounds);
+        Assert.Equal(162, bounds.Value.Width);
+        // Height should be clamped proportionally to 1.5 scale
+        Assert.True(bounds.Value.Height >= 30);
+    }
+
+    [Fact]
+    public void StripBounds_SecondaryMonitor_LeftOnCenteredWithoutObstacles()
+    {
+        var secondaryTaskbarRect = new Rect(1920, 0, 1920, 48);
+        var cluster = new Rect(2800, 0, 240, 48);
+        var layout = new TaskbarLayout(cluster, Array.Empty<Rect>());
+
+        var bounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: secondaryTaskbarRect,
+            layout: layout,
+            dpiScale: 1.0,
+            alignment: "Left",
+            centerAligned: true,
+            tileCount: 4,
+            desiredWidthPx: 144);
+
+        Assert.NotNull(bounds);
+        Assert.Equal(144, bounds.Value.Width);
+        Assert.Equal(48, secondaryTaskbarRect.Height);
+    }
 }

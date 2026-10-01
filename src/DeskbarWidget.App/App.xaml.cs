@@ -13,7 +13,7 @@ public partial class App : System.Windows.Application
     private readonly AutostartService _autostartService = new();
     private VirtualDesktopService? _service;
     private ThemeWatcher? _watcher;
-    private StripWindow? _window;
+    private StripWindowManager? _windowManager;
     private TrayIcon? _tray;
     private Mutex? _instanceMutex;
 
@@ -77,7 +77,7 @@ public partial class App : System.Windows.Application
         var autostartEnabled = _autostartService.CheckIsEnabled();
         _service = new VirtualDesktopService();
         _watcher = new ThemeWatcher();
-        _window = new StripWindow(_service, _watcher, alignment, showAllNames);
+        _windowManager = new StripWindowManager(_service, _watcher, alignment, showAllNames);
 
         DispatcherUnhandledException += (_, args) =>
         {
@@ -105,7 +105,7 @@ public partial class App : System.Windows.Application
                 getAutostartEnabled: () => _autostartService.CheckIsEnabled(),
                 onOpenConfigFolder: OnOpenConfigFolder);
 
-            _window.Initialize();
+            _windowManager.Initialize();
             _service.Start();
             _tray.Show();
             DeskLogger.Info($"running (autostart={autostartEnabled}, config={AppSettings.ConfigFilePath})");
@@ -128,7 +128,7 @@ public partial class App : System.Windows.Application
         DeskLogger.Info($"config file reloaded (showAllNames={config.ShowAllDesktopNames}, autostart={config.AutostartEnabled})");
         Dispatcher.InvokeAsync(() =>
         {
-            _window?.SetShowAllNames(config.ShowAllDesktopNames);
+            _windowManager?.SetShowAllNames(config.ShowAllDesktopNames);
             _tray?.SetShowAllNames(config.ShowAllDesktopNames);
 
             var currentAutostart = _autostartService.CheckIsEnabled();
@@ -162,7 +162,7 @@ public partial class App : System.Windows.Application
     {
         DeskLogger.Info($"tray: toggle showAllNames={showAllNames}");
         AppSettings.ShowAllDesktopNames = showAllNames;
-        _window?.SetShowAllNames(showAllNames);
+        _windowManager?.SetShowAllNames(showAllNames);
     }
 
     private void OnAutostartChanged(bool enabled)
@@ -178,6 +178,7 @@ public partial class App : System.Windows.Application
         ConfigService.Instance.ConfigChanged -= OnExternalConfigChanged;
         ConfigService.Instance.Dispose();
         _tray?.Dispose();
+        _windowManager?.Dispose();
         _service?.Dispose();
         _watcher?.Dispose();
         base.OnExit(e);
