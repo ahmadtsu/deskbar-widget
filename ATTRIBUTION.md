@@ -21,6 +21,10 @@ carry a one-line header pointing here.
 - What we adapted for autostart: `AutostartService` adapting `AutostartAdapter`
   pattern (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` registration,
   quoted process path, and executable existence verification).
+- What we adapted for multi-monitor / DPI handling: `PerMonitorV2` application manifest
+  configuration, live `DisplaySettingsChanged` re-anchoring and settle retry,
+  `TryGetVisibleTaskbarRect` monitor bounds check, and UI Automation layout probe cache
+  invalidation.
 
 ```
 MIT License
@@ -63,8 +67,8 @@ SOFTWARE.
   (`WorkspaceButton.create_new_desktop` in `windows_desktops.py`), and COM
   `CreateDesktopW` invocation (`com.create`).
 - What we adapted for multi-monitor: multi-screen bar management concept from
-  YASB `bar_manager.py` (spawning workspace widgets across connected monitors synchronized
-  to a central virtual desktop service).
+  YASB `bar_manager.py` and `bar.py` (spawning workspace widgets across connected monitors synchronized
+  to a central virtual desktop service, handling screen additions/removals and display geometry changes).
 - What we adapted for autostart: startup enable/disable tray menu item toggle and
   CLI command switches (`--enable-autostart` / `--disable-autostart`) inspired by
   YASB's `tray.py` and `cli.py`.

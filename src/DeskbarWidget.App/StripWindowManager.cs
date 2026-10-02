@@ -168,11 +168,22 @@ internal sealed class StripWindowManager : IDisposable
         DeskLogger.Info("StripWindowManager: DisplaySettingsChanged detected");
         System.Windows.Application.Current?.Dispatcher?.BeginInvoke(() =>
         {
-            var delay = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            // Notify existing windows immediately so stale UIA cache is purged and DPI is updated
+            foreach (var window in _windows.Values.ToList())
+            {
+                window.HandleDisplaySettingsChanged();
+            }
+
+            // Re-sync taskbars once the shell has rebuilt any secondary taskbars (YASB / EverythingToolbar pattern)
+            var delay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
             delay.Tick += (_, _) =>
             {
                 delay.Stop();
                 SyncTaskbars();
+                foreach (var window in _windows.Values.ToList())
+                {
+                    window.HandleDisplaySettingsChanged();
+                }
             };
             delay.Start();
         });

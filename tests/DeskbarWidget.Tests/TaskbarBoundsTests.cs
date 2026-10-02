@@ -150,4 +150,104 @@ public sealed class TaskbarBoundsTests
         Assert.Equal(144, bounds.Value.Width);
         Assert.Equal(48, secondaryTaskbarRect.Height);
     }
+
+    [Fact]
+    public void StripBounds_MismatchedVerticalCluster_FallsBackGracefullyWithoutHiding()
+    {
+        // Reproduces the exact failure from deskbar.log.txt:
+        // taskbar is at Y=1290..1350, but cluster reported Y=1032..1080 (from another display/DPI).
+        var taskbarRect = new Rect(2400, 1290, 2400, 60);
+        var mismatchedCluster = new Rect(2482, 1032, 797, 48);
+        var obstacles = new[]
+        {
+            new Rect(2400, 1032, 40, 48), // Also mismatched Y
+        };
+        var layout = new TaskbarLayout(mismatchedCluster, obstacles);
+
+        // Before our fix: available space was computed as 2482 - 2400 - 16 = 66px < 70px -> returned null (hiding).
+        // With our fix: mismatched cluster and obstacles are ignored, allowing the strip to be placed safely.
+        var bounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: taskbarRect,
+            layout: layout,
+            dpiScale: 1.0,
+            alignment: "Left",
+            centerAligned: true,
+            tileCount: 2,
+            desiredWidthPx: 72);
+
+        Assert.NotNull(bounds);
+        Assert.Equal(72, bounds.Value.Width);
+        // When taskbarHandle is nint.Zero (unit test without native HWND),
+        // coordinates stay in screen space (taskbarRect.Left + 8 padding = 2408).
+        Assert.Equal((int)taskbarRect.Left + 8, bounds.Value.Left);
+    }
+
+    [Fact]
+    public void StripBounds_MismatchedObstaclesOutsideVerticalSpan_Ignored()
+    {
+        var taskbarRect = new Rect(0, 1140, 1920, 60);
+        var cluster = new Rect(700, 1140, 300, 60);
+        var obstacles = new[]
+        {
+            new Rect(0, 500, 500, 50), // Phantom obstacle from window on different vertical coord
+            new Rect(0, 1140, 100, 60), // Real Start/Widgets button on taskbar
+        };
+        var layout = new TaskbarLayout(cluster, obstacles);
+
+        var bounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: taskbarRect,
+            layout: layout,
+            dpiScale: 1.25,
+            alignment: "Left",
+            centerAligned: true,
+            tileCount: 2,
+            desiredWidthPx: 90);
+
+        Assert.NotNull(bounds);
+        // gapStart should be 100 (real obstacle), not 500 (phantom obstacle)
+        // gapLeft = 100 + padding (8 * 1.25 = 10) = 110
+        Assert.Equal(110, bounds.Value.Left);
+    }
+
+    [Fact]
+    public void StripBounds_DualMonitorMixedDpi_BothMonitorsPlacedCorrectly()
+    {
+        // Primary monitor: 1920x1200 at 125% DPI (taskbar=0,1140,1920,60)
+        var primaryTaskbar = new Rect(0, 1140, 1920, 60);
+        var primaryCluster = new Rect(462, 1140, 996, 60);
+        var primaryLayout = new TaskbarLayout(primaryCluster, Array.Empty<Rect>());
+
+        var primaryBounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: primaryTaskbar,
+            layout: primaryLayout,
+            dpiScale: 1.25,
+            alignment: "Left",
+            centerAligned: true,
+            tileCount: 2,
+            desiredWidthPx: 90);
+
+        Assert.NotNull(primaryBounds);
+        Assert.Equal(90, primaryBounds.Value.Width);
+
+        // Secondary monitor: 1920x1080 at 100% DPI (taskbar=1920,1032,1920,48)
+        var secondaryTaskbar = new Rect(1920, 1032, 1920, 48);
+        var secondaryCluster = new Rect(2482, 1032, 797, 48);
+        var secondaryLayout = new TaskbarLayout(secondaryCluster, Array.Empty<Rect>());
+
+        var secondaryBounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: secondaryTaskbar,
+            layout: secondaryLayout,
+            dpiScale: 1.0,
+            alignment: "Left",
+            centerAligned: true,
+            tileCount: 2,
+            desiredWidthPx: 72);
+
+        Assert.NotNull(secondaryBounds);
+        Assert.Equal(72, secondaryBounds.Value.Width);
+    }
 }

@@ -27,6 +27,17 @@ internal sealed class TaskbarLayoutProbe
     private AutomationElement? _cachedFrame;
     private AutomationElement[]? _cachedTrayIcons;
 
+    /// <summary>
+    /// Discards all cached AutomationElement references so stale bounding boxes
+    /// are not reused across display or resolution changes.
+    /// </summary>
+    public void Invalidate()
+    {
+        _cachedFrame = null;
+        _cachedTrayIcons = null;
+        _cachedHandle = nint.Zero;
+    }
+
     /// <param name="refreshElements">
     /// False re-reads the positions of the elements found last time instead of searching for them
     /// again. Valid while a reflow is settling, where things move but none come or go.
@@ -35,6 +46,11 @@ internal sealed class TaskbarLayoutProbe
     {
         var obstacles = new List<Rect>();
         Rect? iconCluster = null;
+
+        if (taskbarHandle != _cachedHandle || refreshElements)
+        {
+            Invalidate();
+        }
 
         try
         {
@@ -53,7 +69,7 @@ internal sealed class TaskbarLayoutProbe
                 }
             }
 
-            var frame = GetFrame(taskbarHandle, taskbar);
+            var frame = GetFrame(taskbarHandle, taskbar, refreshElements);
             if (frame != null)
             {
                 var taskbarRect = taskbar.Current.BoundingRectangle;
@@ -95,11 +111,11 @@ internal sealed class TaskbarLayoutProbe
 
     /// <summary>
     /// Finding the frame is a full descendant walk, and it outlives every reflow, so it is resolved
-    /// once per taskbar rather than on each measurement.
+    /// once per taskbar rather than on each measurement, unless explicitly refreshed.
     /// </summary>
-    private AutomationElement? GetFrame(nint taskbarHandle, AutomationElement taskbar)
+    private AutomationElement? GetFrame(nint taskbarHandle, AutomationElement taskbar, bool refresh)
     {
-        if (_cachedFrame == null || _cachedHandle != taskbarHandle)
+        if (refresh || _cachedFrame == null || _cachedHandle != taskbarHandle)
         {
             _cachedFrame = taskbar.FindFirst(TreeScope.Descendants, ById(TaskbarFrameAutomationId));
             _cachedHandle = taskbarHandle;
