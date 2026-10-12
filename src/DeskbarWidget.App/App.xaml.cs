@@ -239,11 +239,24 @@ public partial class App : System.Windows.Application
         _updateTimer.Start();
     }
 
-    private void OnManualCheckForUpdates()
+    private async void OnManualCheckForUpdates()
     {
         DeskLogger.Info("tray: user requested manual update check");
-        _tray?.ShowNotification("DeskbarWidget", "Checking for updates...");
-        _ = CheckForUpdatesAsync(isManual: true);
+        try
+        {
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            System.Windows.Forms.Cursor.Current = System.Windows.Forms.Cursors.WaitCursor;
+            
+            // Give brief visual feedback with wait cursor
+            var minDelay = Task.Delay(400);
+            var checkTask = CheckForUpdatesAsync(isManual: true);
+            await Task.WhenAll(minDelay, checkTask);
+        }
+        finally
+        {
+            System.Windows.Input.Mouse.OverrideCursor = null;
+            System.Windows.Forms.Cursor.Current = System.Windows.Forms.Cursors.Default;
+        }
     }
 
     private async Task CheckForUpdatesAsync(bool isManual)
@@ -267,26 +280,54 @@ public partial class App : System.Windows.Application
 
             Dispatcher.Invoke(() =>
             {
+                var verDisplay = result.CurrentVersion.Build >= 0
+                    ? result.CurrentVersion.ToString(3)
+                    : result.CurrentVersion.ToString(2);
+
                 if (result.IsUpdateAvailable)
                 {
                     _tray?.SetUpdateAvailable(result, () => UpdateService.OpenReleaseUrl(result.ReleaseUrl));
+
+                    if (isManual)
+                    {
+                        System.Windows.Input.Mouse.OverrideCursor = null;
+                        System.Windows.Forms.Cursor.Current = System.Windows.Forms.Cursors.Default;
+
+                        var res = System.Windows.MessageBox.Show(
+                            $"A new version of DeskbarWidget is available!{Environment.NewLine}{Environment.NewLine}" +
+                            $"Current version: v{verDisplay}{Environment.NewLine}" +
+                            $"Latest version: v{result.LatestVersion}{Environment.NewLine}{Environment.NewLine}" +
+                            $"Would you like to open the GitHub release page to download it?",
+                            "DeskbarWidget Update",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Information);
+
+                        if (res == MessageBoxResult.Yes)
+                        {
+                            UpdateService.OpenReleaseUrl(result.ReleaseUrl);
+                        }
+                    }
                 }
                 else if (isManual)
                 {
+                    System.Windows.Input.Mouse.OverrideCursor = null;
+                    System.Windows.Forms.Cursor.Current = System.Windows.Forms.Cursors.Default;
+
                     if (!string.IsNullOrEmpty(result.ErrorMessage))
                     {
-                        _tray?.ShowNotification(
-                            "Update Check Failed",
-                            $"Could not check for updates: {result.ErrorMessage}");
+                        System.Windows.MessageBox.Show(
+                            $"Could not check for updates:{Environment.NewLine}{result.ErrorMessage}",
+                            "DeskbarWidget Update",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
                     }
                     else
                     {
-                        var verDisplay = result.CurrentVersion.Build >= 0
-                            ? result.CurrentVersion.ToString(3)
-                            : result.CurrentVersion.ToString(2);
-                        _tray?.ShowNotification(
-                            "DeskbarWidget is Up to Date",
-                            $"You are running the latest version (v{verDisplay}).");
+                        System.Windows.MessageBox.Show(
+                            $"You are using the latest version of DeskbarWidget (v{verDisplay}).",
+                            "DeskbarWidget Update",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
                     }
                 }
             });
@@ -298,7 +339,14 @@ public partial class App : System.Windows.Application
             {
                 Dispatcher.Invoke(() =>
                 {
-                    _tray?.ShowNotification("Update Check Failed", ex.Message);
+                    System.Windows.Input.Mouse.OverrideCursor = null;
+                    System.Windows.Forms.Cursor.Current = System.Windows.Forms.Cursors.Default;
+
+                    System.Windows.MessageBox.Show(
+                        $"Could not check for updates:{Environment.NewLine}{ex.Message}",
+                        "DeskbarWidget Update",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
                 });
             }
         }
