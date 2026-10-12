@@ -237,6 +237,36 @@ public sealed class ConfigService : IDisposable
     }
 
     /// <summary>
+    /// Forces an immediate reload of the configuration from disk and fires ConfigChanged.
+    /// </summary>
+    public void Reload()
+    {
+        lock (_gate)
+        {
+            if (_disposed || !File.Exists(ConfigFilePath))
+            {
+                return;
+            }
+
+            if (TryLoadFromFile(out var newConfig, out var newHash))
+            {
+                _lastKnownHash = newHash;
+                CurrentConfig = newConfig;
+                Log($"Reloaded configuration from '{ConfigFilePath}'.");
+
+                try
+                {
+                    ConfigChanged?.Invoke(this, newConfig.Clone());
+                }
+                catch (Exception ex)
+                {
+                    Log($"Exception dispatching ConfigChanged event: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Saves the provided configuration directly to disk.
     /// </summary>
     public void Save(DeskbarConfig config)

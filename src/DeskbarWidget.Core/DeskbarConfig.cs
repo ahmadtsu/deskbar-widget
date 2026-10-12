@@ -32,6 +32,16 @@ public sealed class DeskbarConfig
     public string? CustomTheme { get; set; }
 
     /// <summary>
+    /// Gets or sets whether to check GitHub for updates automatically.
+    /// </summary>
+    public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>
+    /// Tag or version string of an update the user chose to skip (e.g. "1.0.2").
+    /// </summary>
+    public string? SkippedUpdate { get; set; }
+
+    /// <summary>
     /// Creates a deep copy of the configuration object.
     /// </summary>
     public DeskbarConfig Clone()
@@ -42,7 +52,9 @@ public sealed class DeskbarConfig
             AutostartEnabled = AutostartEnabled,
             Font = Font,
             DesktopIcons = DesktopIcons is not null ? new Dictionary<string, string>(DesktopIcons) : null,
-            CustomTheme = CustomTheme
+            CustomTheme = CustomTheme,
+            CheckForUpdates = CheckForUpdates,
+            SkippedUpdate = SkippedUpdate
         };
     }
 }

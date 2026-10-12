@@ -32,7 +32,20 @@ internal sealed class FakeReader : IDesktopReader
         return CurrentGuid;
     }
 
-    public void SwitchTo(Guid guid) => SwitchedTo.Add(guid);
+    public int CreatedCount;
+    public int InvalidateCount;
+    public bool FailSwitchOnce;
+
+    public void SwitchTo(Guid guid)
+    {
+        if (FailSwitchOnce)
+        {
+            FailSwitchOnce = false;
+            throw new VirtualDesktopException("RPC unavailable");
+        }
+
+        SwitchedTo.Add(guid);
+    }
 
     public void Remove(Guid guid)
     {
@@ -59,7 +72,7 @@ internal sealed class FakeReader : IDesktopReader
         }
     }
 
-    public int CreatedCount;
+    public void Invalidate() => InvalidateCount++;
 
     public Guid Create()
     {
@@ -289,5 +302,36 @@ public sealed class VirtualDesktopServiceTests
         using var svc = new VirtualDesktopService(fake);
 
         Assert.Throws<VirtualDesktopException>(() => svc.CreateDesktop());
+    }
+
+    [Fact]
+    public void Reconnect_InvalidatesReader_AndBroadcastsNewSet()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+        DesktopsUpdatedEventArgs? updated = null;
+        svc.DesktopsUpdated += (_, e) => updated = e;
+
+        svc.Reconnect();
+
+        Assert.True(WaitFor(() => updated is not null));
+        Assert.True(updated!.UpdateButtons);
+        Assert.Equal(1, fake.InvalidateCount);
+    }
+
+    [Fact]
+    public void SwitchDesktop_WhenReaderFailsOnce_InvalidatesAndRetries()
+    {
+        var fake = TwoDesktops();
+        fake.FailSwitchOnce = true;
+        using var svc = new VirtualDesktopService(fake);
+        int? changed = null;
+        svc.DesktopChanged += (_, i) => changed = i;
+
+        svc.SwitchDesktop(2);
+
+        Assert.Equal(2, changed);
+        Assert.Equal(1, fake.InvalidateCount);
+        Assert.Equal([G2], fake.SwitchedTo);
     }
 }
