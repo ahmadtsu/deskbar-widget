@@ -254,4 +254,30 @@ public sealed class ConfigServiceTests : IDisposable
         Assert.True(original.ShowAllDesktopNames);
         Assert.Equal("Icon1", original.DesktopIcons["1"]);
     }
+
+    [Fact]
+    public void Reload_FiresConfigChanged_AndUpdatesCurrentConfig()
+    {
+        var configPath = Path.Combine(_tempDirectory, "config.json");
+        var service = new ConfigService(
+            customFilePath: configPath,
+            customRegistrySubKey: _testRegistrySubKey,
+            enableWatcher: false);
+
+        var updated = new DeskbarConfig
+        {
+            ShowAllDesktopNames = true,
+            Font = "Cascadia Code"
+        };
+        File.WriteAllText(configPath, JsonSerializer.Serialize(updated, ConfigService.JsonOptions));
+
+        DeskbarConfig? fired = null;
+        service.ConfigChanged += (_, cfg) => fired = cfg;
+
+        service.Reload();
+
+        Assert.NotNull(fired);
+        Assert.True(fired!.ShowAllDesktopNames);
+        Assert.Equal("Cascadia Code", service.CurrentConfig.Font);
+    }
 }

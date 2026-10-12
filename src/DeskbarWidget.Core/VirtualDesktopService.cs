@@ -66,15 +66,9 @@ public sealed class VirtualDesktopService : IDisposable
     public void Start()
     {
         _listener ??= _listenerFactory(OnComEvent);
-        if (_listener.Active)
-        {
-            return;
-        }
+        _listener.Start();
 
-        if (!_listener.Start() && _pollTimer is null)
-        {
-            _pollTimer = new Timer(_ => Poll(), null, PollIntervalMs, PollIntervalMs);
-        }
+        _pollTimer ??= new Timer(_ => Poll(), null, PollIntervalMs, PollIntervalMs);
     }
 
     public void Stop()
@@ -83,6 +77,24 @@ public sealed class VirtualDesktopService : IDisposable
         _listener = null;
         _pollTimer?.Dispose();
         _pollTimer = null;
+    }
+
+    public void Reconnect()
+    {
+        lock (_gate)
+        {
+            _desktops = null;
+            _currentGuid = null;
+            _refreshQueued = false;
+            _pendingCurrent = false;
+            _pendingSet = false;
+            _pendingButtons = false;
+        }
+
+        _reader.Invalidate();
+        _listener?.Restart();
+        _pollTimer ??= new Timer(_ => Poll(), null, PollIntervalMs, PollIntervalMs);
+        ForceRefresh(updateButtons: true);
     }
 
     public IReadOnlyList<DesktopInfo> GetDesktops()
@@ -124,7 +136,16 @@ public sealed class VirtualDesktopService : IDisposable
     public void SwitchDesktop(int number)
     {
         var desktop = Resolve(number);
-        _reader.SwitchTo(desktop.Guid);
+        try
+        {
+            _reader.SwitchTo(desktop.Guid);
+        }
+        catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
+        {
+            _reader.Invalidate();
+            _reader.SwitchTo(desktop.Guid);
+        }
+
         lock (_gate)
         {
             _desktops = null;
@@ -304,7 +325,6 @@ public sealed class VirtualDesktopService : IDisposable
     {
         lock (_gate)
         {
-            _desktops = null;
             _currentGuid = null;
         }
 
@@ -315,17 +335,18 @@ public sealed class VirtualDesktopService : IDisposable
         }
         catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
         {
+            _reader.Invalidate();
             return;
         }
 
-        if (_listener is not null && !_listener.Active && _listener.Start())
+        if (_listener is not null && !_listener.Active)
         {
-            _pollTimer?.Dispose();
-            _pollTimer = null;
+            _listener.Start();
         }
 
         if (number != _lastNumber)
         {
+            _lastNumber = number;
             DesktopChanged?.Invoke(this, number);
         }
 
@@ -356,7 +377,16 @@ public sealed class VirtualDesktopService : IDisposable
         var number = Snapshot().FirstOrDefault(d => d.Guid == guid)?.Number ?? 0;
         if (number == 0)
         {
-            throw new VirtualDesktopException("Current desktop is not in the desktop list.");
+            lock (_gate)
+            {
+                _desktops = null;
+            }
+
+            number = Snapshot().FirstOrDefault(d => d.Guid == guid)?.Number ?? 0;
+            if (number == 0)
+            {
+                throw new VirtualDesktopException("Current desktop is not in the desktop list.");
+            }
         }
 
         return number;

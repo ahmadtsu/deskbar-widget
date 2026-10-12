@@ -115,7 +115,8 @@ public partial class App : System.Windows.Application
                 autostartEnabled: autostartEnabled,
                 onAutostartChanged: OnAutostartChanged,
                 getAutostartEnabled: () => _autostartService.CheckIsEnabled(),
-                onOpenConfigFolder: OnOpenConfigFolder);
+                onOpenConfigFolder: OnOpenConfigFolder,
+                onReload: OnReload);
 
             _windowManager.Initialize();
             _service.Start();
@@ -182,6 +183,35 @@ public partial class App : System.Windows.Application
         DeskLogger.Info($"tray: toggle autostart={enabled}");
         AppSettings.AutostartEnabled = enabled;
         _tray?.SetAutostart(_autostartService.CheckIsEnabled());
+    }
+
+    private void OnReload()
+    {
+        DeskLogger.Info("tray: user clicked Reload DeskbarWidget");
+        Dispatcher.InvokeAsync(() =>
+        {
+            try
+            {
+                ConfigService.Instance.Reload();
+                _service?.Reconnect();
+                _watcher?.Refresh();
+                _windowManager?.SyncTaskbars();
+                if (_windowManager != null)
+                {
+                    foreach (var window in _windowManager.Windows)
+                    {
+                        window.HandleDisplaySettingsChanged();
+                    }
+                }
+
+                _tray?.ShowNotification("DeskbarWidget", "Reloaded successfully");
+                DeskLogger.Info("tray: reload completed successfully");
+            }
+            catch (Exception ex)
+            {
+                DeskLogger.Info($"tray: reload failed: {ex.Message}");
+            }
+        });
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -161,6 +161,12 @@ internal sealed class DesktopNotificationListener : IDisposable
         }
     }
 
+    public bool Restart()
+    {
+        Stop();
+        return Start();
+    }
+
     public void Stop()
     {
         if (_cookie != 0 && _service is not null)
@@ -168,6 +174,18 @@ internal sealed class DesktopNotificationListener : IDisposable
             try
             {
                 _service.Unregister(_cookie);
+            }
+            catch
+            {
+                // Best effort.
+            }
+        }
+
+        if (_service != null && Marshal.IsComObject(_service))
+        {
+            try
+            {
+                Marshal.ReleaseComObject(_service);
             }
             catch
             {

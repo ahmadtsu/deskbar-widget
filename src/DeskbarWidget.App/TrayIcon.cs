@@ -24,7 +24,8 @@ internal sealed class TrayIcon : IDisposable
         bool autostartEnabled = false,
         Action<bool>? onAutostartChanged = null,
         Func<bool>? getAutostartEnabled = null,
-        Action? onOpenConfigFolder = null)
+        Action? onOpenConfigFolder = null,
+        Action? onReload = null)
     {
         _ownedIcon = LoadIcon();
 
@@ -43,6 +44,12 @@ internal sealed class TrayIcon : IDisposable
             ToolTipText = "Automatically start DeskbarWidget when Windows logs in",
         };
         _autostartItem.Click += (_, _) => onAutostartChanged?.Invoke(_autostartItem.Checked);
+
+        var reloadItem = new Forms.ToolStripMenuItem("Reload DeskbarWidget")
+        {
+            ToolTipText = "Reload configuration, reconnect virtual desktop service, and re-dock widget",
+        };
+        reloadItem.Click += (_, _) => onReload?.Invoke();
 
         var openConfigItem = new Forms.ToolStripMenuItem("Open config folder")
         {
@@ -69,11 +76,15 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add(_showNamesItem);
         menu.Items.Add(_autostartItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
+        if (onReload is not null)
+        {
+            menu.Items.Add(reloadItem);
+        }
         if (onOpenConfigFolder is not null)
         {
             menu.Items.Add(openConfigItem);
-            menu.Items.Add(new Forms.ToolStripSeparator());
         }
+        menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(exit);
 
         _icon = new Forms.NotifyIcon
@@ -83,6 +94,18 @@ internal sealed class TrayIcon : IDisposable
             ContextMenuStrip = menu,
             Visible = false,
         };
+    }
+
+    public void ShowNotification(string title, string message)
+    {
+        try
+        {
+            _icon.ShowBalloonTip(2000, title, message, Forms.ToolTipIcon.Info);
+        }
+        catch
+        {
+            // Best effort; notifications may be disabled in OS settings.
+        }
     }
 
     public void Show() => _icon.Visible = true;

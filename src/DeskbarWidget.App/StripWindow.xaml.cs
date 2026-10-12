@@ -564,6 +564,9 @@ internal partial class StripWindow : Window
 
         if (_taskbarCreatedMsg != 0 && msg == _taskbarCreatedMsg)
         {
+            DeskLogger.Info("StripWindow: TaskbarCreated received (Explorer restart), reconnecting service");
+            _service.Reconnect();
+
             if (_isSecondary)
             {
                 // Secondary taskbars will be recreated and re-synchronized by StripWindowManager

@@ -16,11 +16,48 @@ public sealed class VirtualDesktopApi
 
     private readonly ThreadLocal<State?> _state = new(trackAllValues: false);
     private readonly TierResolver _tiers = new();
+    private int _version;
 
     public bool SupportsNames => ThreadSupportsNames();
     public bool SupportsWallpaper => TierSupportsWallpaper();
 
     private int Tier => Ensure().Tier;
+
+    public void Invalidate()
+    {
+        Interlocked.Increment(ref _version);
+        var s = _state.Value;
+        _state.Value = null;
+        if (s is not null)
+        {
+            ReleaseState(s);
+        }
+    }
+
+    private T ExecuteWithRetry<T>(Func<T> action)
+    {
+        try
+        {
+            return action();
+        }
+        catch (Exception ex) when (IsRecoverableComFailure(ex))
+        {
+            Invalidate();
+            return action();
+        }
+    }
+
+    private void ExecuteWithRetry(Action action)
+    {
+        ExecuteWithRetry(() =>
+        {
+            action();
+            return true;
+        });
+    }
+
+    private static bool IsRecoverableComFailure(Exception ex) =>
+        ex is COMException or InvalidComObjectException or VirtualDesktopException;
 
     private bool ThreadSupportsNames()
     {
@@ -43,7 +80,9 @@ public sealed class VirtualDesktopApi
         }
     }
 
-    public IReadOnlyList<DesktopData> ListDesktops()
+    public IReadOnlyList<DesktopData> ListDesktops() => ExecuteWithRetry(ListDesktopsCore);
+
+    private IReadOnlyList<DesktopData> ListDesktopsCore()
     {
         var s = Ensure();
         var items = new List<DesktopData>();
@@ -74,7 +113,9 @@ public sealed class VirtualDesktopApi
         return items;
     }
 
-    public Guid CurrentGuid()
+    public Guid CurrentGuid() => ExecuteWithRetry(CurrentGuidCore);
+
+    private Guid CurrentGuidCore()
     {
         var s = Ensure();
         return s.Tier switch
@@ -90,7 +131,9 @@ public sealed class VirtualDesktopApi
 
     public int Count() => ListDesktops().Count;
 
-    public void SwitchTo(Guid guid)
+    public void SwitchTo(Guid guid) => ExecuteWithRetry(() => SwitchToCore(guid));
+
+    private void SwitchToCore(Guid guid)
     {
         var s = Ensure();
         try
@@ -160,7 +203,9 @@ public sealed class VirtualDesktopApi
     /// Delete a desktop (YASB com.remove). Falls back to the first remaining
     /// desktop when the deleted one is in view; refuses the last desktop.
     /// </summary>
-    public void Remove(Guid guid)
+    public void Remove(Guid guid) => ExecuteWithRetry(() => RemoveCore(guid));
+
+    private void RemoveCore(Guid guid)
     {
         var s = Ensure();
         var fallback = ListDesktops().FirstOrDefault(d => d.Guid != guid);
@@ -238,7 +283,9 @@ public sealed class VirtualDesktopApi
     /// <summary>
     /// Create a desktop and return its GUID (YASB com.create).
     /// </summary>
-    public Guid Create()
+    public Guid Create() => ExecuteWithRetry(CreateCore);
+
+    private Guid CreateCore()
     {
         var s = Ensure();
         switch (s.Tier)
@@ -280,7 +327,9 @@ public sealed class VirtualDesktopApi
     /// <summary>
     /// Rename a desktop (YASB com.rename).
     /// </summary>
-    public void Rename(Guid guid, string name)
+    public void Rename(Guid guid, string name) => ExecuteWithRetry(() => RenameCore(guid, name));
+
+    private void RenameCore(Guid guid, string name)
     {
         var s = Ensure();
         using var hName = new NativeHString.Owned(name);
@@ -334,7 +383,10 @@ public sealed class VirtualDesktopApi
         }
     }
 
-    internal IVirtualDesktopNotificationService NotificationService()
+    internal IVirtualDesktopNotificationService NotificationService() =>
+        ExecuteWithRetry(NotificationServiceCore);
+
+    private static IVirtualDesktopNotificationService NotificationServiceCore()
     {
         var provider = CreateProvider();
         try
@@ -606,9 +658,15 @@ public sealed class VirtualDesktopApi
     private State Ensure()
     {
         var s = _state.Value;
-        if (s is not null)
+        if (s is not null && s.Version == _version)
         {
             return s;
+        }
+
+        if (s is not null)
+        {
+            ReleaseState(s);
+            _state.Value = null;
         }
 
         try
@@ -624,7 +682,7 @@ public sealed class VirtualDesktopApi
         var provider = CreateProvider();
         try
         {
-            s = new State { Tier = tier };
+            s = new State { Tier = tier, Version = _version };
             var svc = VirtualDesktopGuids.CLSID_VirtualDesktopManagerInternalService;
             switch (tier)
             {
@@ -691,6 +749,32 @@ public sealed class VirtualDesktopApi
         return s;
     }
 
+    private static void ReleaseState(State s)
+    {
+        static void SafeRelease(object? obj)
+        {
+            if (obj != null && Marshal.IsComObject(obj))
+            {
+                try
+                {
+                    Marshal.ReleaseComObject(obj);
+                }
+                catch
+                {
+                    // Ignore release errors if the COM server has exited
+                }
+            }
+        }
+
+        SafeRelease(s.Manager26100);
+        SafeRelease(s.Manager22631);
+        SafeRelease(s.Manager22621);
+        SafeRelease(s.Manager21313);
+        SafeRelease(s.Manager20231);
+        SafeRelease(s.ManagerWin10);
+        SafeRelease(s.ManagerInternal2);
+    }
+
     private static IServiceProvider CreateProvider()
     {
         var clsid = VirtualDesktopGuids.CLSID_ImmersiveShell;
@@ -715,6 +799,7 @@ public sealed class VirtualDesktopApi
 
     private sealed class State
     {
+        public int Version;
         public int Tier;
         public IManager26100? Manager26100;
         public IManager22631? Manager22631;

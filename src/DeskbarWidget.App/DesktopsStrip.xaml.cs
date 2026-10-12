@@ -91,9 +91,10 @@ internal partial class DesktopsStrip
                 {
                     _service?.SwitchDesktop(number);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Shell hiccup; notification/poll will correct the UI.
+                    DeskLogger.Info($"switch to desktop #{number} failed: {ex.Message}");
+                    _service?.Reconnect();
                 }
             };
             btn.ContextMenu = BuildTileMenu(btn, number, desktops.Count);

@@ -77,6 +77,8 @@ internal sealed class ThemeWatcher : IDisposable
         get { lock (_gate) return _current; }
     }
 
+    public void Refresh() => OnDebounced(null);
+
     public event EventHandler<ThemeSnapshot>? Changed;
 
     private void WatchLoop()

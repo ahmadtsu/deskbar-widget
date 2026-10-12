@@ -45,6 +45,8 @@ internal sealed class StripWindowManager : IDisposable
         try
         {
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+            SystemEvents.PowerModeChanged += OnPowerModeChanged;
+            SystemEvents.SessionSwitch += OnSessionSwitch;
         }
         catch (Exception ex)
         {
@@ -107,6 +109,12 @@ internal sealed class StripWindowManager : IDisposable
                     DeskLogger.Info($"Error closing dead window: {ex.Message}");
                 }
             }
+        }
+
+        if (deadHandles.Count > 0)
+        {
+            DeskLogger.Info("SyncTaskbars: dead taskbar(s) detected, reconnecting VirtualDesktopService");
+            _service.Reconnect();
         }
 
         // 2. Add newly discovered taskbars
@@ -189,6 +197,43 @@ internal sealed class StripWindowManager : IDisposable
         });
     }
 
+    private void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        DeskLogger.Info($"StripWindowManager: PowerModeChanged ({e.Mode})");
+        if (e.Mode == PowerModes.Resume)
+        {
+            System.Windows.Application.Current?.Dispatcher?.BeginInvoke(() =>
+            {
+                var delay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+                delay.Tick += (_, _) =>
+                {
+                    delay.Stop();
+                    DeskLogger.Info("StripWindowManager: Resume delay elapsed, syncing taskbars and reconnecting service");
+                    _service.Reconnect();
+                    SyncTaskbars();
+                    foreach (var window in _windows.Values.ToList())
+                    {
+                        window.HandleDisplaySettingsChanged();
+                    }
+                };
+                delay.Start();
+            });
+        }
+    }
+
+    private void OnSessionSwitch(object? sender, SessionSwitchEventArgs e)
+    {
+        DeskLogger.Info($"StripWindowManager: SessionSwitch ({e.Reason})");
+        if (e.Reason is SessionSwitchReason.SessionUnlock or SessionSwitchReason.ConsoleConnect or SessionSwitchReason.SessionLogon)
+        {
+            System.Windows.Application.Current?.Dispatcher?.BeginInvoke(() =>
+            {
+                _service.Reconnect();
+                SyncTaskbars();
+            });
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -202,6 +247,8 @@ internal sealed class StripWindowManager : IDisposable
         try
         {
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+            SystemEvents.SessionSwitch -= OnSessionSwitch;
         }
         catch { }
 
