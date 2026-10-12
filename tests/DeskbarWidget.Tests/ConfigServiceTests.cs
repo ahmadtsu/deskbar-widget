@@ -244,15 +244,49 @@ public sealed class ConfigServiceTests : IDisposable
             AutostartEnabled = false,
             Font = "CustomFont",
             DesktopIcons = new Dictionary<string, string> { { "1", "Icon1" } },
-            CustomTheme = "Nord"
+            CustomTheme = "Nord",
+            CheckForUpdates = false,
+            SkippedUpdate = "1.0.3"
         };
 
         var clone = original.Clone();
         clone.ShowAllDesktopNames = false;
         clone.DesktopIcons!["1"] = "IconChanged";
+        clone.CheckForUpdates = true;
+        clone.SkippedUpdate = "1.0.4";
 
         Assert.True(original.ShowAllDesktopNames);
         Assert.Equal("Icon1", original.DesktopIcons["1"]);
+        Assert.False(original.CheckForUpdates);
+        Assert.Equal("1.0.3", original.SkippedUpdate);
+    }
+
+    [Fact]
+    public void UpdateSettings_CheckForUpdatesAndSkippedUpdate_PersistCorrectly()
+    {
+        var configPath = Path.Combine(_tempDirectory, "config.json");
+        var service = new ConfigService(
+            customFilePath: configPath,
+            customRegistrySubKey: _testRegistrySubKey,
+            enableWatcher: false);
+
+        service.Update(cfg =>
+        {
+            cfg.CheckForUpdates = false;
+            cfg.SkippedUpdate = "1.2.0";
+        });
+
+        Assert.False(service.CurrentConfig.CheckForUpdates);
+        Assert.Equal("1.2.0", service.CurrentConfig.SkippedUpdate);
+
+        // Re-read directly from disk in new instance
+        var reloaded = new ConfigService(
+            customFilePath: configPath,
+            customRegistrySubKey: _testRegistrySubKey,
+            enableWatcher: false);
+
+        Assert.False(reloaded.CurrentConfig.CheckForUpdates);
+        Assert.Equal("1.2.0", reloaded.CurrentConfig.SkippedUpdate);
     }
 
     [Fact]

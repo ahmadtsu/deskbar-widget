@@ -15,6 +15,8 @@ public partial class App : System.Windows.Application
     private ThemeWatcher? _watcher;
     private StripWindowManager? _windowManager;
     private TrayIcon? _tray;
+    private UpdateService? _updateService;
+    private System.Windows.Threading.DispatcherTimer? _updateTimer;
     private Mutex? _instanceMutex;
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetProcessDpiAwarenessContext(nint dpiContext);
@@ -108,6 +110,8 @@ public partial class App : System.Windows.Application
 
         try
         {
+            _updateService = new UpdateService(logger: DeskLogger.Info);
+
             _tray = new TrayIcon(
                 onExit: Shutdown,
                 showAllNames: showAllNames,
@@ -116,12 +120,18 @@ public partial class App : System.Windows.Application
                 onAutostartChanged: OnAutostartChanged,
                 getAutostartEnabled: () => _autostartService.CheckIsEnabled(),
                 onOpenConfigFolder: OnOpenConfigFolder,
-                onReload: OnReload);
+                onReload: OnReload,
+                onCheckForUpdates: OnManualCheckForUpdates);
 
             _windowManager.Initialize();
             _service.Start();
             _tray.Show();
             DeskLogger.Info($"running (autostart={autostartEnabled}, config={AppSettings.ConfigFilePath})");
+
+            if (ConfigService.Instance.CurrentConfig.CheckForUpdates)
+            {
+                ScheduleUpdateCheck(TimeSpan.FromSeconds(5));
+            }
         }
         catch (Exception ex)
         {
@@ -214,9 +224,91 @@ public partial class App : System.Windows.Application
         });
     }
 
+    private void ScheduleUpdateCheck(TimeSpan initialDelay)
+    {
+        _updateTimer?.Stop();
+        _updateTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = initialDelay
+        };
+        _updateTimer.Tick += async (_, _) =>
+        {
+            _updateTimer.Interval = TimeSpan.FromHours(24);
+            await CheckForUpdatesAsync(isManual: false);
+        };
+        _updateTimer.Start();
+    }
+
+    private void OnManualCheckForUpdates()
+    {
+        DeskLogger.Info("tray: user requested manual update check");
+        _tray?.ShowNotification("DeskbarWidget", "Checking for updates...");
+        _ = CheckForUpdatesAsync(isManual: true);
+    }
+
+    private async Task CheckForUpdatesAsync(bool isManual)
+    {
+        if (_updateService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var config = ConfigService.Instance.CurrentConfig;
+            if (!isManual && !config.CheckForUpdates)
+            {
+                return;
+            }
+
+            var result = await _updateService.CheckForUpdatesAsync(
+                skippedVersion: config.SkippedUpdate,
+                ignoreSkipped: isManual);
+
+            Dispatcher.Invoke(() =>
+            {
+                if (result.IsUpdateAvailable)
+                {
+                    _tray?.SetUpdateAvailable(result, () => UpdateService.OpenReleaseUrl(result.ReleaseUrl));
+                }
+                else if (isManual)
+                {
+                    if (!string.IsNullOrEmpty(result.ErrorMessage))
+                    {
+                        _tray?.ShowNotification(
+                            "Update Check Failed",
+                            $"Could not check for updates: {result.ErrorMessage}");
+                    }
+                    else
+                    {
+                        var verDisplay = result.CurrentVersion.Build >= 0
+                            ? result.CurrentVersion.ToString(3)
+                            : result.CurrentVersion.ToString(2);
+                        _tray?.ShowNotification(
+                            "DeskbarWidget is Up to Date",
+                            $"You are running the latest version (v{verDisplay}).");
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            DeskLogger.Info($"Update check exception: {ex.Message}");
+            if (isManual)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    _tray?.ShowNotification("Update Check Failed", ex.Message);
+                });
+            }
+        }
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         DeskLogger.Info($"OnExit code={e.ApplicationExitCode}");
+        _updateTimer?.Stop();
+        _updateService?.Dispose();
         ConfigService.Instance.ConfigChanged -= OnExternalConfigChanged;
         ConfigService.Instance.Dispose();
         _tray?.Dispose();

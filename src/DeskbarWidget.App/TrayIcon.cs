@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Windows;
+using DeskbarWidget.Core;
 using Forms = System.Windows.Forms;
 
 namespace DeskbarWidget.App;
@@ -12,8 +13,12 @@ namespace DeskbarWidget.App;
 internal sealed class TrayIcon : IDisposable
 {
     private readonly Forms.NotifyIcon _icon;
+    private readonly Forms.ContextMenuStrip _menu;
     private readonly Forms.ToolStripMenuItem _showNamesItem;
     private readonly Forms.ToolStripMenuItem _autostartItem;
+    private Forms.ToolStripMenuItem? _updateAvailableItem;
+    private Forms.ToolStripSeparator? _updateAvailableSeparator;
+    private Action? _onBalloonClick;
     private Icon? _ownedIcon;
     private bool _disposed;
 
@@ -25,7 +30,8 @@ internal sealed class TrayIcon : IDisposable
         Action<bool>? onAutostartChanged = null,
         Func<bool>? getAutostartEnabled = null,
         Action? onOpenConfigFolder = null,
-        Action? onReload = null)
+        Action? onReload = null,
+        Action? onCheckForUpdates = null)
     {
         _ownedIcon = LoadIcon();
 
@@ -57,15 +63,21 @@ internal sealed class TrayIcon : IDisposable
         };
         openConfigItem.Click += (_, _) => onOpenConfigFolder?.Invoke();
 
+        var checkUpdatesItem = new Forms.ToolStripMenuItem("Check for updates...")
+        {
+            ToolTipText = "Check GitHub for newer releases of DeskbarWidget",
+        };
+        checkUpdatesItem.Click += (_, _) => onCheckForUpdates?.Invoke();
+
         var exit = new Forms.ToolStripMenuItem("Exit");
         exit.Click += (_, _) => onExit();
 
-        var menu = new Forms.ContextMenuStrip
+        _menu = new Forms.ContextMenuStrip
         {
             RenderMode = Forms.ToolStripRenderMode.System,
             ShowItemToolTips = true,
         };
-        menu.Opening += (_, _) =>
+        _menu.Opening += (_, _) =>
         {
             if (getAutostartEnabled is not null)
             {
@@ -73,26 +85,35 @@ internal sealed class TrayIcon : IDisposable
             }
         };
 
-        menu.Items.Add(_showNamesItem);
-        menu.Items.Add(_autostartItem);
-        menu.Items.Add(new Forms.ToolStripSeparator());
+        _menu.Items.Add(_showNamesItem);
+        _menu.Items.Add(_autostartItem);
+        _menu.Items.Add(new Forms.ToolStripSeparator());
         if (onReload is not null)
         {
-            menu.Items.Add(reloadItem);
+            _menu.Items.Add(reloadItem);
         }
         if (onOpenConfigFolder is not null)
         {
-            menu.Items.Add(openConfigItem);
+            _menu.Items.Add(openConfigItem);
         }
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(exit);
+        if (onCheckForUpdates is not null)
+        {
+            _menu.Items.Add(checkUpdatesItem);
+        }
+        _menu.Items.Add(new Forms.ToolStripSeparator());
+        _menu.Items.Add(exit);
 
         _icon = new Forms.NotifyIcon
         {
             Text = "DeskbarWidget",
             Icon = _ownedIcon,
-            ContextMenuStrip = menu,
+            ContextMenuStrip = _menu,
             Visible = false,
+        };
+        _icon.BalloonTipClicked += (_, _) =>
+        {
+            _onBalloonClick?.Invoke();
+            _onBalloonClick = null;
         };
     }
 
@@ -100,11 +121,51 @@ internal sealed class TrayIcon : IDisposable
     {
         try
         {
-            _icon.ShowBalloonTip(2000, title, message, Forms.ToolTipIcon.Info);
+            _icon.ShowBalloonTip(3000, title, message, Forms.ToolTipIcon.Info);
         }
         catch
         {
             // Best effort; notifications may be disabled in OS settings.
+        }
+    }
+
+    public void SetUpdateAvailable(UpdateCheckResult result, Action onOpenRelease)
+    {
+        ClearUpdateAvailable();
+
+        _updateAvailableItem = new Forms.ToolStripMenuItem($"★ Update available (v{result.LatestVersion})...")
+        {
+            Font = new System.Drawing.Font(_menu.Font, System.Drawing.FontStyle.Bold),
+            ForeColor = Color.FromArgb(0, 102, 204),
+            ToolTipText = $"A newer version (v{result.LatestVersion}) is available on GitHub. Click to open release page.",
+        };
+        _updateAvailableItem.Click += (_, _) => onOpenRelease();
+
+        _updateAvailableSeparator = new Forms.ToolStripSeparator();
+        _menu.Items.Insert(0, _updateAvailableItem);
+        _menu.Items.Insert(1, _updateAvailableSeparator);
+
+        _onBalloonClick = onOpenRelease;
+        ShowNotification(
+            "DeskbarWidget Update Available",
+            $"Version v{result.LatestVersion} is available on GitHub. Click to view release.");
+    }
+
+    public void ClearUpdateAvailable()
+    {
+        _onBalloonClick = null;
+        if (_updateAvailableItem is not null)
+        {
+            _menu.Items.Remove(_updateAvailableItem);
+            _updateAvailableItem.Dispose();
+            _updateAvailableItem = null;
+        }
+
+        if (_updateAvailableSeparator is not null)
+        {
+            _menu.Items.Remove(_updateAvailableSeparator);
+            _updateAvailableSeparator.Dispose();
+            _updateAvailableSeparator = null;
         }
     }
 
