@@ -230,7 +230,6 @@ public sealed class VirtualDesktopService : IDisposable
                 if (nextUnlocked is not null)
                 {
                     SwitchDesktop(nextUnlocked.Number);
-                    return true;
                 }
             }
         }
@@ -293,7 +292,7 @@ public sealed class VirtualDesktopService : IDisposable
         lock (_gate)
         {
             _desktops = null;
-            _currentGuid = null;
+            _currentGuid = desktop.Guid;
         }
 
         // Optimistic emit; the shell notification confirms it right after.

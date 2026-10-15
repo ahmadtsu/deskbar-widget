@@ -112,6 +112,10 @@ internal partial class DesktopsStrip
                 }
             };
             btn.ContextMenu = BuildTileMenu(btn, number, desktops.Count);
+            btn.ContextMenuOpening += (_, _) =>
+            {
+                btn.ContextMenu = BuildTileMenu(btn, number, Tiles.Items.Count);
+            };
             Tiles.Items.Add(btn);
         }
 
@@ -260,6 +264,15 @@ internal partial class DesktopsStrip
             {
                 continue;
             }
+
+            var isLocked = _service?.IsDesktopLocked(number) ?? false;
+            btn.IsLocked = isLocked;
+            var toolTipText = _names.TryGetValue(number, out var name) ? name : $"Desktop {number}";
+            if (isLocked)
+            {
+                toolTipText += " (Locked)";
+            }
+            btn.ToolTip = toolTipText;
 
             var isActive = number == current;
             if (btn.IsActive == isActive)
