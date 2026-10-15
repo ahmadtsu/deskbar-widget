@@ -26,8 +26,20 @@
                                 BorderBrush="{DynamicResource TileBorder}"
                                 BorderThickness="1"
                                 CornerRadius="{DynamicResource TileCornerRadius}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
+                            <Grid>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                                <TextBlock x:Name="LockBadge"
+                                           Text="&#xE72E;"
+                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                           FontSize="8"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Top"
+                                           Margin="0,2,3,0"
+                                           Foreground="{TemplateBinding Foreground}"
+                                           Opacity="0.8"
+                                           Visibility="Collapsed" />
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -40,6 +52,10 @@
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TileActiveBackground}" />
                                 <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent" />
                                 <Setter Property="Foreground" Value="{DynamicResource TileActiveForeground}" />
+                            </Trigger>
+                            <Trigger Property="IsLocked" Value="True">
+                                <Setter TargetName="LockBadge" Property="Visibility" Value="Visible" />
+                                <Setter Property="Cursor" Value="Arrow" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

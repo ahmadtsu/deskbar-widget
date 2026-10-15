@@ -20,4 +20,15 @@ internal sealed class TileButton : System.Windows.Controls.Button
         get => (bool)GetValue(IsActiveProperty);
         set => SetValue(IsActiveProperty, value);
     }
+
+    public static readonly DependencyProperty IsLockedProperty =
+        DependencyProperty.Register(
+            nameof(IsLocked), typeof(bool), typeof(TileButton),
+            new PropertyMetadata(false));
+
+    public bool IsLocked
+    {
+        get => (bool)GetValue(IsLockedProperty);
+        set => SetValue(IsLockedProperty, value);
+    }
 }

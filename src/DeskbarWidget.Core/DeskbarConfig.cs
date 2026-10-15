@@ -42,6 +42,11 @@ public sealed class DeskbarConfig
     public string? SkippedUpdate { get; set; }
 
     /// <summary>
+    /// Optional list of GUIDs for virtual desktops that are locked.
+    /// </summary>
+    public List<Guid>? LockedDesktops { get; set; }
+
+    /// <summary>
     /// Creates a deep copy of the configuration object.
     /// </summary>
     public DeskbarConfig Clone()
@@ -54,7 +59,8 @@ public sealed class DeskbarConfig
             DesktopIcons = DesktopIcons is not null ? new Dictionary<string, string>(DesktopIcons) : null,
             CustomTheme = CustomTheme,
             CheckForUpdates = CheckForUpdates,
-            SkippedUpdate = SkippedUpdate
+            SkippedUpdate = SkippedUpdate,
+            LockedDesktops = LockedDesktops is not null ? new List<Guid>(LockedDesktops) : null,
         };
     }
 }

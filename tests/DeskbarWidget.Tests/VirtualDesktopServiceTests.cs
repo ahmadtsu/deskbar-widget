@@ -334,4 +334,124 @@ public sealed class VirtualDesktopServiceTests
         Assert.Equal(1, fake.InvalidateCount);
         Assert.Equal([G2], fake.SwitchedTo);
     }
+
+    [Fact]
+    public void LockDesktop_LocksTargetDesktop_AndEmitsDesktopsUpdated()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+        DesktopsUpdatedEventArgs? updated = null;
+        svc.DesktopsUpdated += (_, e) => updated = e;
+
+        var result = svc.LockDesktop(2);
+
+        Assert.True(result);
+        Assert.True(svc.IsDesktopLocked(2));
+        Assert.True(svc.IsDesktopLocked(G2));
+        Assert.False(svc.IsDesktopLocked(1));
+        Assert.True(WaitFor(() => updated is not null));
+        Assert.True(updated!.UpdateButtons);
+    }
+
+    [Fact]
+    public void LockDesktop_ActiveDesktop_SwitchesToUnlockedDesktop()
+    {
+        var fake = TwoDesktops();
+        fake.CurrentGuid = G1;
+        using var svc = new VirtualDesktopService(fake);
+
+        var result = svc.LockDesktop(1);
+
+        Assert.True(result);
+        Assert.True(svc.IsDesktopLocked(1));
+        Assert.Contains(G2, fake.SwitchedTo);
+    }
+
+    [Fact]
+    public void LockDesktop_CannotLockLastUnlockedDesktop()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+
+        Assert.True(svc.LockDesktop(2));
+        // Desktop 1 is now the only unlocked desktop
+        var result = svc.LockDesktop(1);
+
+        Assert.False(result);
+        Assert.False(svc.IsDesktopLocked(1));
+    }
+
+    [Fact]
+    public void SwitchDesktop_LockedDesktop_IsIgnored()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+        svc.LockDesktop(2);
+        fake.SwitchedTo.Clear();
+
+        svc.SwitchDesktop(2);
+
+        Assert.Empty(fake.SwitchedTo);
+    }
+
+    [Fact]
+    public void CurrentChanged_ToLockedDesktop_BouncesBackToLastAllowed()
+    {
+        var fake = TwoDesktops();
+        fake.CurrentGuid = G1;
+        using var svc = new VirtualDesktopService(fake);
+        svc.LockDesktop(2);
+        fake.SwitchedTo.Clear();
+
+        // Simulate external shell switch to locked desktop G2
+        fake.CurrentGuid = G2;
+        svc.TestEmitComEvent(DesktopEvent.CurrentChanged);
+
+        // Should bounce back to G1
+        Assert.True(WaitFor(() => fake.SwitchedTo.Contains(G1)));
+    }
+
+    [Fact]
+    public void UnlockDesktop_UnlocksDesktop_AndAllowsSwitching()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+        svc.LockDesktop(2);
+        Assert.True(svc.IsDesktopLocked(2));
+
+        var unlocked = svc.UnlockDesktop(2);
+
+        Assert.True(unlocked);
+        Assert.False(svc.IsDesktopLocked(2));
+
+        fake.SwitchedTo.Clear();
+        svc.SwitchDesktop(2);
+        Assert.Equal([G2], fake.SwitchedTo);
+    }
+
+    [Fact]
+    public void DeleteDesktop_RemovesLockedGuid()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+        svc.LockDesktop(2);
+        Assert.True(svc.IsDesktopLocked(G2));
+
+        svc.DeleteDesktop(2);
+
+        Assert.False(svc.IsDesktopLocked(G2));
+    }
+
+    [Fact]
+    public void LoadLockedDesktops_LoadsGuids_AndGuaranteesAtLeastOneUnlocked()
+    {
+        var fake = TwoDesktops();
+        using var svc = new VirtualDesktopService(fake);
+
+        // Attempt to load all desktops as locked
+        svc.LoadLockedDesktops([G1, G2]);
+
+        // At least one must be unlocked so the user is never trapped
+        Assert.True(svc.GetUnlockedDesktopCount() >= 1);
+    }
 }

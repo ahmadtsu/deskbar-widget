@@ -30,12 +30,18 @@ public sealed class VirtualDesktopService : IDisposable
     private bool _pendingButtons;
     private bool _refreshQueued;
 
+    private readonly HashSet<Guid> _lockedGuids = new();
+    private Guid _lastAllowedGuid = Guid.Empty;
+    private int _lastAllowedNumber = 1;
+    private volatile bool _isBouncing;
+
     private int _lastCount;
     private int _lastNumber;
     private bool _disposed;
 
     public event EventHandler<int>? DesktopChanged;
     public event EventHandler<DesktopsUpdatedEventArgs>? DesktopsUpdated;
+    public event EventHandler<IReadOnlySet<Guid>>? LockedDesktopsChanged;
 
     public VirtualDesktopService(IDesktopReader? reader = null, SynchronizationContext? context = null)
         : this(reader, context, listenerFactory: null)
@@ -56,6 +62,8 @@ public sealed class VirtualDesktopService : IDisposable
             var snapshot = Snapshot();
             _lastCount = snapshot.Count;
             _lastNumber = CurrentNumber();
+            _lastAllowedGuid = CurrentGuid();
+            _lastAllowedNumber = _lastNumber;
         }
         catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
         {
@@ -133,9 +141,145 @@ public sealed class VirtualDesktopService : IDisposable
         }
     }
 
+    public bool IsDesktopLocked(Guid guid)
+    {
+        lock (_gate)
+        {
+            return _lockedGuids.Contains(guid);
+        }
+    }
+
+    public bool IsDesktopLocked(int number)
+    {
+        try
+        {
+            var desktop = Resolve(number);
+            lock (_gate)
+            {
+                return _lockedGuids.Contains(desktop.Guid);
+            }
+        }
+        catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
+        {
+            return false;
+        }
+    }
+
+    public int GetUnlockedDesktopCount()
+    {
+        try
+        {
+            var desktops = Snapshot();
+            lock (_gate)
+            {
+                return desktops.Count(d => !_lockedGuids.Contains(d.Guid));
+            }
+        }
+        catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
+        {
+            return 0;
+        }
+    }
+
+    public void LoadLockedDesktops(IEnumerable<Guid> guids)
+    {
+        lock (_gate)
+        {
+            _lockedGuids.Clear();
+            foreach (var g in guids)
+            {
+                _lockedGuids.Add(g);
+            }
+
+            EnsureAtLeastOneUnlocked();
+        }
+    }
+
+    public bool LockDesktop(int number)
+    {
+        DesktopInfo target;
+        try
+        {
+            target = Resolve(number);
+        }
+        catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            var snapshot = Snapshot();
+            var unlockedCount = snapshot.Count(d => !_lockedGuids.Contains(d.Guid));
+            if (unlockedCount <= 1 && !_lockedGuids.Contains(target.Guid))
+            {
+                return false;
+            }
+
+            _lockedGuids.Add(target.Guid);
+        }
+
+        NotifyLockedChanged();
+
+        try
+        {
+            var currentGuid = CurrentGuid();
+            if (currentGuid == target.Guid)
+            {
+                var nextUnlocked = Snapshot().FirstOrDefault(d => !_lockedGuids.Contains(d.Guid));
+                if (nextUnlocked is not null)
+                {
+                    SwitchDesktop(nextUnlocked.Number);
+                    return true;
+                }
+            }
+        }
+        catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
+        {
+        }
+
+        ForceRefresh(updateButtons: true);
+        return true;
+    }
+
+    public bool UnlockDesktop(int number)
+    {
+        DesktopInfo target;
+        try
+        {
+            target = Resolve(number);
+        }
+        catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
+        {
+            return false;
+        }
+
+        bool removed;
+        lock (_gate)
+        {
+            removed = _lockedGuids.Remove(target.Guid);
+        }
+
+        if (removed)
+        {
+            NotifyLockedChanged();
+            ForceRefresh(updateButtons: true);
+        }
+
+        return removed;
+    }
+
     public void SwitchDesktop(int number)
     {
         var desktop = Resolve(number);
+        lock (_gate)
+        {
+            if (_lockedGuids.Contains(desktop.Guid))
+            {
+                return;
+            }
+        }
+
         try
         {
             _reader.SwitchTo(desktop.Guid);
@@ -166,6 +310,13 @@ public sealed class VirtualDesktopService : IDisposable
     {
         var desktop = Resolve(number);
         _reader.Remove(desktop.Guid);
+        lock (_gate)
+        {
+            if (_lockedGuids.Remove(desktop.Guid))
+            {
+                NotifyLockedChanged();
+            }
+        }
         ForceRefresh(updateButtons: false);
     }
 
@@ -278,13 +429,32 @@ public sealed class VirtualDesktopService : IDisposable
         }
 
         int number;
+        Guid guid;
         try
         {
+            guid = CurrentGuid();
             number = CurrentNumber();
         }
         catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
         {
             return;
+        }
+
+        if (set)
+        {
+            CleanupDeadLockedGuids();
+        }
+
+        lock (_gate)
+        {
+            if (_lockedGuids.Contains(guid))
+            {
+                BounceAwayFromLockedDesktop();
+                return;
+            }
+
+            _lastAllowedGuid = guid;
+            _lastAllowedNumber = number;
         }
 
         if (current)
@@ -329,8 +499,10 @@ public sealed class VirtualDesktopService : IDisposable
         }
 
         int number;
+        Guid guid;
         try
         {
+            guid = CurrentGuid();
             number = CurrentNumber();
         }
         catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
@@ -344,6 +516,18 @@ public sealed class VirtualDesktopService : IDisposable
             _listener.Start();
         }
 
+        lock (_gate)
+        {
+            if (_lockedGuids.Contains(guid))
+            {
+                BounceAwayFromLockedDesktop();
+                return;
+            }
+
+            _lastAllowedGuid = guid;
+            _lastAllowedNumber = number;
+        }
+
         if (number != _lastNumber)
         {
             _lastNumber = number;
@@ -351,6 +535,113 @@ public sealed class VirtualDesktopService : IDisposable
         }
 
         RefreshState(false);
+    }
+
+    private void BounceAwayFromLockedDesktop()
+    {
+        if (_isBouncing)
+        {
+            return;
+        }
+
+        _isBouncing = true;
+        try
+        {
+            Guid targetGuid = Guid.Empty;
+            var snapshot = Snapshot();
+
+            if (_lastAllowedGuid != Guid.Empty &&
+                !_lockedGuids.Contains(_lastAllowedGuid) &&
+                snapshot.Any(d => d.Guid == _lastAllowedGuid))
+            {
+                targetGuid = _lastAllowedGuid;
+            }
+            else
+            {
+                var fallback = snapshot.FirstOrDefault(d => !_lockedGuids.Contains(d.Guid));
+                if (fallback is not null)
+                {
+                    targetGuid = fallback.Guid;
+                }
+            }
+
+            if (targetGuid != Guid.Empty)
+            {
+                try
+                {
+                    _reader.SwitchTo(targetGuid);
+                }
+                catch (Exception ex) when (ShellErrorFilter.IsShellFailure(ex))
+                {
+                    _reader.Invalidate();
+                    _reader.SwitchTo(targetGuid);
+                }
+
+                lock (_gate)
+                {
+                    _desktops = null;
+                    _currentGuid = targetGuid;
+                }
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _isBouncing = false;
+        }
+    }
+
+    private void NotifyLockedChanged()
+    {
+        HashSet<Guid> copy;
+        lock (_gate)
+        {
+            copy = new HashSet<Guid>(_lockedGuids);
+        }
+
+        LockedDesktopsChanged?.Invoke(this, copy);
+    }
+
+    private void EnsureAtLeastOneUnlocked()
+    {
+        try
+        {
+            var snapshot = Snapshot();
+            if (snapshot.Count > 0 && snapshot.All(d => _lockedGuids.Contains(d.Guid)))
+            {
+                var currentGuid = CurrentGuid();
+                if (!_lockedGuids.Remove(currentGuid) && snapshot.Count > 0)
+                {
+                    _lockedGuids.Remove(snapshot[0].Guid);
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void CleanupDeadLockedGuids()
+    {
+        try
+        {
+            var validGuids = Snapshot().Select(d => d.Guid).ToHashSet();
+            bool changed;
+            lock (_gate)
+            {
+                changed = _lockedGuids.RemoveWhere(g => !validGuids.Contains(g)) > 0;
+            }
+
+            if (changed)
+            {
+                NotifyLockedChanged();
+            }
+        }
+        catch
+        {
+        }
     }
 
     private List<DesktopInfo> Snapshot()
