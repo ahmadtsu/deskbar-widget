@@ -73,20 +73,34 @@ internal partial class DesktopsStrip
             var name = string.IsNullOrWhiteSpace(d.Name) ? d.Number.ToString() : d.Name;
             _names[d.Number] = name;
             var active = d.Number == current;
+            var isLocked = _service?.IsDesktopLocked(d.Number) ?? false;
             var label = GetTileLabel(d.Number, active);
             var width = GetTileWidth(d.Number, active);
+            var toolTipText = string.IsNullOrWhiteSpace(d.Name) ? $"Desktop {d.Number}" : d.Name;
+            if (isLocked)
+            {
+                toolTipText += " (Locked)";
+            }
+
             var btn = new TileButton
             {
                 Style = style,
                 Content = MakeLabel(label),
                 IsActive = active,
+                IsLocked = isLocked,
                 Width = width,
                 Tag = d.Number,
-                ToolTip = string.IsNullOrWhiteSpace(d.Name) ? $"Desktop {d.Number}" : d.Name,
+                ToolTip = toolTipText,
             };
             var number = d.Number;
             btn.Click += (_, _) =>
             {
+                if (_service?.IsDesktopLocked(number) == true)
+                {
+                    DeskLogger.Info($"desktop #{number} is locked; click ignored");
+                    return;
+                }
+
                 try
                 {
                     _service?.SwitchDesktop(number);
@@ -98,6 +112,10 @@ internal partial class DesktopsStrip
                 }
             };
             btn.ContextMenu = BuildTileMenu(btn, number, desktops.Count);
+            btn.ContextMenuOpening += (_, _) =>
+            {
+                btn.ContextMenu = BuildTileMenu(btn, number, Tiles.Items.Count);
+            };
             Tiles.Items.Add(btn);
         }
 
@@ -111,12 +129,46 @@ internal partial class DesktopsStrip
 
     /// <summary>
     /// Tile context menu (adapted from YASB WorkspaceButton context menu):
+    /// - Lock/Unlock (locks or unlocks navigation to the desktop)
     /// - Rename (opens YASB-styled floating popup input dialog)
     /// - Delete (disabled while a single desktop remains, like the shell itself)
     /// - Create New Desktop (creates a new desktop via COM, matching YASB com.create)
     /// </summary>
     private ContextMenu BuildTileMenu(TileButton btn, int number, int desktopCount)
     {
+        var isLocked = _service?.IsDesktopLocked(number) ?? false;
+        var unlockedCount = _service?.GetUnlockedDesktopCount() ?? desktopCount;
+
+        var lockToggle = new MenuItem
+        {
+            Header = isLocked ? "Unlock" : "Lock",
+            // Segoe Fluent Icons / Segoe MDL2 Assets glyphs:
+            // \uE785 is Unlock, \uE72E is Lock
+            Icon = isLocked ? "\uE785" : "\uE72E",
+            IsEnabled = isLocked || unlockedCount > 1,
+            ToolTip = (!isLocked && unlockedCount <= 1) ? "At least one desktop must remain unlocked." : null,
+        };
+        lockToggle.Click += (_, _) =>
+        {
+            try
+            {
+                if (isLocked)
+                {
+                    DeskLogger.Info($"unlock desktop #{number}");
+                    _service?.UnlockDesktop(number);
+                }
+                else
+                {
+                    DeskLogger.Info($"lock desktop #{number}");
+                    _service?.LockDesktop(number);
+                }
+            }
+            catch (Exception ex)
+            {
+                DeskLogger.Info($"toggle lock failed: {ex.Message}");
+            }
+        };
+
         var rename = new MenuItem
         {
             Header = "Rename",
@@ -177,7 +229,7 @@ internal partial class DesktopsStrip
             }
         };
 
-        return new ContextMenu { Items = { rename, delete, new Separator(), create } };
+        return new ContextMenu { Items = { lockToggle, new Separator(), rename, delete, new Separator(), create } };
     }
 
     private ContextMenu BuildBackgroundMenu()
@@ -212,6 +264,15 @@ internal partial class DesktopsStrip
             {
                 continue;
             }
+
+            var isLocked = _service?.IsDesktopLocked(number) ?? false;
+            btn.IsLocked = isLocked;
+            var toolTipText = _names.TryGetValue(number, out var name) ? name : $"Desktop {number}";
+            if (isLocked)
+            {
+                toolTipText += " (Locked)";
+            }
+            btn.ToolTip = toolTipText;
 
             var isActive = number == current;
             if (btn.IsActive == isActive)

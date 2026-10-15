@@ -90,6 +90,15 @@ public partial class App : System.Windows.Application
 
         var autostartEnabled = _autostartService.CheckIsEnabled();
         _service = new VirtualDesktopService();
+        if (ConfigService.Instance.CurrentConfig.LockedDesktops is { Count: > 0 } locked)
+        {
+            _service.LoadLockedDesktops(locked);
+        }
+        _service.LockedDesktopsChanged += (_, lockedGuids) =>
+        {
+            ConfigService.Instance.Update(cfg => cfg.LockedDesktops = lockedGuids.ToList());
+        };
+
         _watcher = new ThemeWatcher();
         _windowManager = new StripWindowManager(_service, _watcher, alignment, showAllNames);
 
@@ -151,6 +160,12 @@ public partial class App : System.Windows.Application
         DeskLogger.Info($"config file reloaded (showAllNames={config.ShowAllDesktopNames}, autostart={config.AutostartEnabled})");
         Dispatcher.InvokeAsync(() =>
         {
+            if (config.LockedDesktops is not null && _service is not null)
+            {
+                _service.LoadLockedDesktops(config.LockedDesktops);
+                _service.ForceRefresh(updateButtons: true);
+            }
+
             _windowManager?.SetShowAllNames(config.ShowAllDesktopNames);
             _tray?.SetShowAllNames(config.ShowAllDesktopNames);
 

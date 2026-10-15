@@ -26,8 +26,21 @@
                                 BorderBrush="{DynamicResource TileBorder}"
                                 BorderThickness="1"
                                 CornerRadius="{DynamicResource TileCornerRadius}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
+                            <Grid>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                                <Path x:Name="LockBadge"
+                                      Width="5.5"
+                                      Height="6.5"
+                                      Stretch="Uniform"
+                                      Fill="{TemplateBinding Foreground}"
+                                      Opacity="0.85"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Top"
+                                      Margin="0,3.5,4,0"
+                                      Data="M2.5,4.5 L2.5,2.5 C2.5,1.12 3.62,0 5,0 C6.38,0 7.5,1.12 7.5,2.5 L7.5,4.5 L8.5,4.5 C9.33,4.5 10,5.17 10,6 L10,10.5 C10,11.33 9.33,12 8.5,12 L1.5,12 C0.67,12 0,11.33 0,10.5 L0,6 C0,5.17 0.67,4.5 1.5,4.5 Z M3.8,4.5 L6.2,4.5 L6.2,2.5 C6.2,1.84 5.66,1.3 5,1.3 C4.34,1.3 3.8,1.84 3.8,2.5 Z"
+                                      Visibility="Collapsed" />
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -40,6 +53,10 @@
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TileActiveBackground}" />
                                 <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent" />
                                 <Setter Property="Foreground" Value="{DynamicResource TileActiveForeground}" />
+                            </Trigger>
+                            <Trigger Property="IsLocked" Value="True">
+                                <Setter TargetName="LockBadge" Property="Visibility" Value="Visible" />
+                                <Setter Property="Cursor" Value="Arrow" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
