@@ -93,13 +93,47 @@ internal static class StripBounds
 
         if (leftOnCentered)
         {
-            gapEnd = cluster?.Left ?? taskbarRectPx.Right;
-            gapStart = relevantObstacles.Select(o => o.Right).Where(x => x <= gapEnd).Append(taskbarRectPx.Left).Max();
+            // For Left alignment on a centered taskbar:
+            // The strip sits to the left of the centered cluster.
+            // If cluster is known, gapEnd is cluster.Left.
+            // If cluster is unmeasurable/transient, on a centered taskbar the icons are centered,
+            // so the left region ends at most at the taskbar midpoint (never extending across the tray).
+            double maxLeftBound = taskbarRectPx.Left + (taskbarRectPx.Width / 2.0);
+            gapEnd = cluster.HasValue ? cluster.Value.Left : maxLeftBound;
+
+            // Only obstacles to the left of gapEnd (e.g. WidgetsButton) are relevant.
+            // System tray icons on the right half must never contaminate the left gap.
+            gapStart = relevantObstacles
+                .Where(o => o.Right <= gapEnd)
+                .Select(o => o.Right)
+                .Append(taskbarRectPx.Left)
+                .Max();
         }
         else
         {
-            gapStart = cluster?.Right ?? taskbarRectPx.Left;
-            gapEnd = relevantObstacles.Select(o => o.Left).Where(x => x >= gapStart).Append(taskbarRectPx.Right).Min();
+            // For Right alignment (or left-aligned taskbars):
+            // The strip sits to the right of the icon cluster.
+            // If cluster is known, gapStart is cluster.Right.
+            // If cluster is unmeasurable/transient:
+            //   - On a centered taskbar: the cluster spans the center, so right gap starts at midpoint.
+            //   - On a left-aligned taskbar: icons start on the left, so gap starts after any left obstacles
+            //     or at midpoint if none are found.
+            double minRightBound = centerAligned
+                ? taskbarRectPx.Left + (taskbarRectPx.Width / 2.0)
+                : relevantObstacles
+                    .Where(o => o.Right <= taskbarRectPx.Left + (taskbarRectPx.Width / 2.0))
+                    .Select(o => o.Right)
+                    .Append(taskbarRectPx.Left)
+                    .Max();
+            gapStart = cluster.HasValue ? cluster.Value.Right : minRightBound;
+
+            // Only obstacles to the right of gapStart (e.g. System Tray) are relevant.
+            // Widgets buttons on the far left must never contaminate the right gap.
+            gapEnd = relevantObstacles
+                .Where(o => o.Left >= gapStart)
+                .Select(o => o.Left)
+                .Append(taskbarRectPx.Right)
+                .Min();
         }
 
         int padding = (int)(HorizontalPaddingDip * dpiScale);

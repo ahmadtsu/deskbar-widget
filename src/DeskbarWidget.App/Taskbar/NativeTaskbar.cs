@@ -124,11 +124,49 @@ internal static class NativeTaskbar
         int cy,
         uint uFlags);
 
+    [DllImport("user32.dll", EntryPoint = "OpenInputDesktop")]
+    private static extern nint OpenInputDesktopPrivate(uint dwFlags, [MarshalAs(UnmanagedType.Bool)] bool fInherit, uint dwDesiredAccess);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "OpenDesktop")]
+    private static extern nint OpenDesktopPrivate(string lpszDesktop, uint dwFlags, [MarshalAs(UnmanagedType.Bool)] bool fInherit, uint dwDesiredAccess);
+
+    [DllImport("user32.dll", EntryPoint = "SetThreadDesktop")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetThreadDesktopPrivate(nint hDesktop);
+
+    internal static bool EnsureInteractiveDesktop()
+    {
+        try
+        {
+            var hDesk = OpenInputDesktopPrivate(0, false, 0x01FF);
+            if (hDesk == nint.Zero)
+            {
+                hDesk = OpenDesktopPrivate("Default", 0, false, 0x01FF);
+            }
+
+            if (hDesk != nint.Zero)
+            {
+                return SetThreadDesktopPrivate(hDesk);
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
     internal static nint FindTaskbarHandle()
     {
         try
         {
-            return FindWindow("Shell_TrayWnd", null);
+            var handle = FindWindow("Shell_TrayWnd", null);
+            if (handle == nint.Zero)
+            {
+                EnsureInteractiveDesktop();
+                handle = FindWindow("Shell_TrayWnd", null);
+            }
+            return handle;
         }
         catch (Exception ex)
         {

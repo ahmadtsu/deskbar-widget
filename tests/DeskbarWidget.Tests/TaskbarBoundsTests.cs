@@ -250,4 +250,89 @@ public sealed class TaskbarBoundsTests
         Assert.NotNull(secondaryBounds);
         Assert.Equal(72, secondaryBounds.Value.Width);
     }
+
+    [Fact]
+    public void StripBounds_LeftOnCentered_UnmeasurableClusterWithTrayObstacles_PlacesSafelyInLeftCornerWithoutCollapsing()
+    {
+        // Reproduces the exact glitch from user's logs:
+        // taskbar is 0,1368,2560,72 with DPI=1.5, cluster=none, and 8 tray icon obstacles on the right.
+        // Previously: tray icons on the right caused gapStart to jump to 2550, collapsing available space and hiding the widget.
+        // Fixed: tray icons are excluded from the left region and widget lands safely in the left corner.
+        var taskbarRect = new Rect(0, 1368, 2560, 72);
+        var trayObstacles = new[]
+        {
+            new Rect(2000, 1368, 40, 72),
+            new Rect(2100, 1368, 40, 72),
+            new Rect(2200, 1368, 40, 72),
+            new Rect(2500, 1368, 50, 72),
+        };
+        var layout = new TaskbarLayout(IconCluster: null, trayObstacles);
+
+        var bounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: taskbarRect,
+            layout: layout,
+            dpiScale: 1.5,
+            alignment: "Left",
+            centerAligned: true,
+            tileCount: 2,
+            desiredWidthPx: 169);
+
+        Assert.NotNull(bounds);
+        Assert.Equal(169, bounds.Value.Width);
+        // Should place in the left corner (taskbar.Left + 8dip * 1.5 = 12px)
+        Assert.Equal(12, bounds.Value.Left);
+    }
+
+    [Fact]
+    public void StripBounds_RightOnCentered_UnmeasurableClusterWithLeftObstacles_PlacesSafelyWithoutCollapsing()
+    {
+        var taskbarRect = new Rect(0, 1368, 2560, 72);
+        var leftObstacles = new[]
+        {
+            new Rect(0, 1368, 150, 72), // Widgets button on the far left
+        };
+        var layout = new TaskbarLayout(IconCluster: null, leftObstacles);
+
+        var bounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: taskbarRect,
+            layout: layout,
+            dpiScale: 1.5,
+            alignment: "Right",
+            centerAligned: true,
+            tileCount: 2,
+            desiredWidthPx: 169);
+
+        Assert.NotNull(bounds);
+        Assert.Equal(169, bounds.Value.Width);
+        // On a centered taskbar, right-aligned strip starts after midpoint (1280)
+        Assert.True(bounds.Value.Left >= 1280);
+    }
+
+    [Fact]
+    public void StripBounds_LeftAlignedTaskbar_UnmeasurableCluster_PlacesSafelyAfterLeftObstacles()
+    {
+        var taskbarRect = new Rect(0, 0, 1920, 48);
+        var obstacles = new[]
+        {
+            new Rect(0, 0, 60, 48), // Start button on far left
+            new Rect(1700, 0, 200, 48), // System tray on far right
+        };
+        var layout = new TaskbarLayout(IconCluster: null, obstacles);
+
+        var bounds = StripBounds.Calculate(
+            taskbarHandle: nint.Zero,
+            taskbarRectPx: taskbarRect,
+            layout: layout,
+            dpiScale: 1.0,
+            alignment: "Right",
+            centerAligned: false,
+            tileCount: 2,
+            desiredWidthPx: 100);
+
+        Assert.NotNull(bounds);
+        Assert.Equal(100, bounds.Value.Width);
+        Assert.True(bounds.Value.Left >= 60);
+    }
 }
