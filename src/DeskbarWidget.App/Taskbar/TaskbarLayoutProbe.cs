@@ -62,10 +62,17 @@ internal sealed class TaskbarLayoutProbe
 
             foreach (var icon in GetTrayIcons(taskbarHandle, taskbar, refreshElements))
             {
-                var iconRect = icon.Current.BoundingRectangle;
-                if (iconRect.Width > 0 && iconRect.Height > 0)
+                try
                 {
-                    obstacles.Add(iconRect);
+                    var iconRect = icon.Current.BoundingRectangle;
+                    if (iconRect.Width > 0 && iconRect.Height > 0)
+                    {
+                        obstacles.Add(iconRect);
+                    }
+                }
+                catch
+                {
+                    // Stale icon reference during reflow
                 }
             }
 
@@ -81,19 +88,26 @@ internal sealed class TaskbarLayoutProbe
                     AutomationElement child in frame.FindAll(TreeScope.Children, AutomationCondition.TrueCondition)
                 )
                 {
-                    var rect = child.Current.BoundingRectangle;
-                    if (rect.Width <= 0 || rect.Height <= 0)
+                    try
                     {
-                        continue;
-                    }
+                        var rect = child.Current.BoundingRectangle;
+                        if (rect.Width <= 0 || rect.Height <= 0)
+                        {
+                            continue;
+                        }
 
-                    if (child.Current.AutomationId is SystemTrayIconAutomationId or WidgetsButtonAutomationId)
-                    {
-                        obstacles.Add(rect);
+                        if (child.Current.AutomationId is SystemTrayIconAutomationId or WidgetsButtonAutomationId)
+                        {
+                            obstacles.Add(rect);
+                        }
+                        else if ((isVertical ? rect.Height : rect.Width) <= maxIconDimension)
+                        {
+                            iconCluster = iconCluster.HasValue ? Rect.Union(iconCluster.Value, rect) : rect;
+                        }
                     }
-                    else if ((isVertical ? rect.Height : rect.Width) <= maxIconDimension)
+                    catch
                     {
-                        iconCluster = iconCluster.HasValue ? Rect.Union(iconCluster.Value, rect) : rect;
+                        // Stale child element during desktop switch or window animation
                     }
                 }
             }

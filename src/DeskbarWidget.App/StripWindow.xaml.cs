@@ -458,14 +458,28 @@ internal partial class StripWindow : Window
             return;
         }
 
+        // If the current probe failed to find the cluster (e.g. transient transition or animation),
+        // fallback to the last known valid cluster on this taskbar to avoid glitching/disappearing.
+        var effectiveCluster = layout.IconCluster;
+        if (!effectiveCluster.HasValue && _lastLayout?.IconCluster is { } lastCluster &&
+            _lastTaskbarRect == taskbarRect)
+        {
+            effectiveCluster = lastCluster;
+        }
+
+        var effectiveLayout = new TaskbarLayout(effectiveCluster, layout.Obstacles);
+
         _lastTaskbarRect = taskbarRect;
-        _lastLayout = layout;
+        if (effectiveCluster.HasValue)
+        {
+            _lastLayout = effectiveLayout;
+        }
         _lastDpi = dpi;
         _lastCenterAligned = centerAligned;
 
         DeskLogger.Info(
             $"probe: align={alignment} centered={centerAligned} dpi={dpi:F2} " +
-            $"taskbar={taskbarRect} cluster={Fmt(layout.IconCluster)} " +
+            $"taskbar={taskbarRect} cluster={Fmt(effectiveLayout.IconCluster)} " +
             $"obstacles={layout.Obstacles.Count} tiles={tiles}");
 
         // Measure the rendered content so the HWND is sized to what WPF draws
@@ -474,7 +488,7 @@ internal partial class StripWindow : Window
         var contentDip = Math.Max(Strip.DesiredSize.Width, Strip.ComputeDesiredContentWidth());
         var contentPx = contentDip * dpi;
 
-        var bounds = StripBounds.Calculate(handle, taskbarRect, layout, dpi, alignment, centerAligned, tiles, contentPx + dpi);
+        var bounds = StripBounds.Calculate(handle, taskbarRect, effectiveLayout, dpi, alignment, centerAligned, tiles, contentPx + dpi);
         if (bounds is { } b)
         {
             NativeTaskbar.GetWindowRect(_handle, out var hr);
@@ -490,8 +504,17 @@ internal partial class StripWindow : Window
         }
         else
         {
-            DeskLogger.Info($"no room for {tiles} tiles; hiding");
-            _animator.Hide();
+            // Do not hide the window during transitions or when cluster could not be measured;
+            // only hide if settling is complete, the cluster was measured, and there is genuinely no space.
+            if (_animator.CurrentBounds != null && (DateTime.UtcNow < _settleDeadline || !layout.IconCluster.HasValue))
+            {
+                DeskLogger.Info($"no room calculated during transient state; preserving current placement to prevent glitch");
+            }
+            else
+            {
+                DeskLogger.Info($"no room for {tiles} tiles; hiding");
+                _animator.Hide();
+            }
         }
     }
 

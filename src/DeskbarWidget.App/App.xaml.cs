@@ -27,6 +27,7 @@ public partial class App : System.Windows.Application
     {
         try
         {
+            Taskbar.NativeTaskbar.EnsureInteractiveDesktop();
             SetProcessDpiAwarenessContext((nint)DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         }
         catch
