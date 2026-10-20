@@ -255,10 +255,7 @@ internal static class NativeTaskbar
                 return false;
             }
 
-            bool classicFound = false;
-            bool modernFound = false;
-
-            // 1. Direct children fast-check
+            // 1. Direct children fast-check for modern Windows 11 taskbar classes
             nint child = GetWindow(taskbar, GW_CHILD);
             var sb = new StringBuilder(256);
             while (child != nint.Zero)
@@ -266,56 +263,57 @@ internal static class NativeTaskbar
                 sb.Clear();
                 if (GetClassName(child, sb, sb.Capacity) > 0)
                 {
-                    var cls = sb.ToString();
-                    if (IsClassicTaskbarClassName(cls))
+                    if (IsModernTaskbarClassName(sb.ToString()))
                     {
-                        return true;
-                    }
-
-                    if (IsModernTaskbarClassName(cls))
-                    {
-                        modernFound = true;
+                        return false;
                     }
                 }
 
                 child = GetWindow(child, GW_HWNDNEXT);
             }
 
-            if (modernFound)
-            {
-                return false;
-            }
-
             // 2. Deep check: enumerate all descendant windows (handles deeply nested structures in Win11 23H2/24H2)
+            bool modernFound = false;
             EnumChildWindows(taskbar, (hwnd, _) =>
             {
                 sb.Clear();
                 if (GetClassName(hwnd, sb, sb.Capacity) > 0)
                 {
-                    var cls = sb.ToString();
-                    if (IsClassicTaskbarClassName(cls))
-                    {
-                        classicFound = true;
-                        return false; // Stop enumeration immediately
-                    }
-
-                    if (IsModernTaskbarClassName(cls))
+                    if (IsModernTaskbarClassName(sb.ToString()))
                     {
                         modernFound = true;
+                        return false; // Stop enumeration immediately
                     }
                 }
 
                 return true; // Continue enumeration
             }, nint.Zero);
 
-            if (classicFound)
-            {
-                return true;
-            }
-
             if (modernFound)
             {
                 return false;
+            }
+
+            // If a visible classic task list exists without modern XAML components (e.g. ExplorerPatcher/RetroBar on Win11),
+            // it is a classic taskbar.
+            bool visibleClassicList = false;
+            EnumChildWindows(taskbar, (hwnd, _) =>
+            {
+                sb.Clear();
+                if (GetClassName(hwnd, sb, sb.Capacity) > 0 &&
+                    string.Equals(sb.ToString(), "MSTaskListWClass", StringComparison.OrdinalIgnoreCase) &&
+                    IsWindowVisible(hwnd))
+                {
+                    visibleClassicList = true;
+                    return false;
+                }
+
+                return true;
+            }, nint.Zero);
+
+            if (visibleClassicList)
+            {
+                return true;
             }
 
             // On Windows 11 (build >= 22000), taskbars are modern by default unless classic controls were detected.
@@ -328,11 +326,6 @@ internal static class NativeTaskbar
             return false;
         }
     }
-
-    internal static bool IsClassicTaskbarClassName(string className) =>
-        string.Equals(className, "MSTaskListWClass", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(className, "MSTaskSwWClass", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(className, "ReBarWindow32", StringComparison.OrdinalIgnoreCase);
 
     internal static bool IsModernTaskbarClassName(string className) =>
         string.Equals(className, TaskbarXamlIslandClass, StringComparison.OrdinalIgnoreCase) ||

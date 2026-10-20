@@ -337,19 +337,6 @@ public sealed class TaskbarBoundsTests
     }
 
     [Theory]
-    [InlineData("MSTaskListWClass", true)]
-    [InlineData("MSTaskSwWClass", true)]
-    [InlineData("ReBarWindow32", true)]
-    [InlineData("Windows.UI.Composition.DesktopWindowContentBridge", false)]
-    [InlineData("DesktopWindowXamlSource", false)]
-    [InlineData("Windows.UI.Input.InputSite.WindowClass", false)]
-    [InlineData("Shell_TrayWnd", false)]
-    public void IsClassicTaskbarClassName_IdentifiesLegacyClasses(string className, bool expected)
-    {
-        Assert.Equal(expected, NativeTaskbar.IsClassicTaskbarClassName(className));
-    }
-
-    [Theory]
     [InlineData("Windows.UI.Composition.DesktopWindowContentBridge", true)]
     [InlineData("DesktopWindowXamlSource", true)]
     [InlineData("Windows.UI.Input.InputSite.WindowClass", true)]
