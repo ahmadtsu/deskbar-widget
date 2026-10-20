@@ -87,6 +87,12 @@ internal static class NativeTaskbar
     [DllImport("user32.dll", SetLastError = true)]
     private static extern nint GetWindow(nint hWnd, int uCmd);
 
+    private delegate bool EnumChildProc(nint hwnd, nint lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumChildWindows(nint hWndParent, EnumChildProc lpEnumFunc, nint lParam);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern int GetClassName(nint hWnd, StringBuilder lpClassName, int nMaxCount);
 
@@ -243,12 +249,77 @@ internal static class NativeTaskbar
                 taskbar = FindTaskbarHandle();
             }
 
-            if (taskbar == nint.Zero)
+            if (taskbar == nint.Zero || !IsWindow(taskbar))
             {
                 return false;
             }
 
-            return !HasChildOfClass(taskbar, TaskbarXamlIslandClass);
+            bool classicFound = false;
+            bool modernFound = false;
+
+            // 1. Direct children fast-check
+            nint child = GetWindow(taskbar, GW_CHILD);
+            var sb = new StringBuilder(256);
+            while (child != nint.Zero)
+            {
+                sb.Clear();
+                if (GetClassName(child, sb, sb.Capacity) > 0)
+                {
+                    var cls = sb.ToString();
+                    if (IsClassicTaskbarClassName(cls))
+                    {
+                        return true;
+                    }
+
+                    if (IsModernTaskbarClassName(cls))
+                    {
+                        modernFound = true;
+                    }
+                }
+
+                child = GetWindow(child, GW_HWNDNEXT);
+            }
+
+            if (modernFound)
+            {
+                return false;
+            }
+
+            // 2. Deep check: enumerate all descendant windows (handles deeply nested structures in Win11 23H2/24H2)
+            EnumChildWindows(taskbar, (hwnd, _) =>
+            {
+                sb.Clear();
+                if (GetClassName(hwnd, sb, sb.Capacity) > 0)
+                {
+                    var cls = sb.ToString();
+                    if (IsClassicTaskbarClassName(cls))
+                    {
+                        classicFound = true;
+                        return false; // Stop enumeration immediately
+                    }
+
+                    if (IsModernTaskbarClassName(cls))
+                    {
+                        modernFound = true;
+                    }
+                }
+
+                return true; // Continue enumeration
+            }, nint.Zero);
+
+            if (classicFound)
+            {
+                return true;
+            }
+
+            if (modernFound)
+            {
+                return false;
+            }
+
+            // On Windows 11 (build >= 22000), taskbars are modern by default unless classic controls were detected.
+            // On older Windows (< 22000), it is classic.
+            return Environment.OSVersion.Version.Build < 22000;
         }
         catch (Exception ex)
         {
@@ -256,6 +327,16 @@ internal static class NativeTaskbar
             return false;
         }
     }
+
+    internal static bool IsClassicTaskbarClassName(string className) =>
+        string.Equals(className, "MSTaskListWClass", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(className, "MSTaskSwWClass", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(className, "ReBarWindow32", StringComparison.OrdinalIgnoreCase);
+
+    internal static bool IsModernTaskbarClassName(string className) =>
+        string.Equals(className, TaskbarXamlIslandClass, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(className, "DesktopWindowXamlSource", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(className, "Windows.UI.Input.InputSite.WindowClass", StringComparison.OrdinalIgnoreCase);
 
     internal static bool IsTaskbarAutoHiding()
     {
@@ -423,21 +504,5 @@ internal static class NativeTaskbar
         }
     }
 
-    private static bool HasChildOfClass(nint parentHandle, string className)
-    {
-        nint child = GetWindow(parentHandle, GW_CHILD);
-        var sb = new StringBuilder(256);
-        while (child != nint.Zero)
-        {
-            sb.Clear();
-            if (GetClassName(child, sb, sb.Capacity) > 0 && sb.ToString() == className)
-            {
-                return true;
-            }
 
-            child = GetWindow(child, GW_HWNDNEXT);
-        }
-
-        return false;
-    }
 }

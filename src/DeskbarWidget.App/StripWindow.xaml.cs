@@ -269,16 +269,6 @@ internal partial class StripWindow : Window
 
     private void TryDock()
     {
-        if (!CanDock())
-        {
-            DeskLogger.Info(
-                $"TryDock: not dockable (build={Environment.OSVersion.Version.Build} " +
-                $"classic={NativeTaskbar.IsClassicTaskbar(_taskbarHandle)} " +
-                $"tray=0x{_taskbarHandle:X} secondary={_isSecondary})");
-            ScheduleRetryOrFallback();
-            return;
-        }
-
         if (_taskbarHandle == nint.Zero)
         {
             _taskbarHandle = NativeTaskbar.FindTaskbarHandle();
@@ -287,6 +277,16 @@ internal partial class StripWindow : Window
         if (_taskbarHandle == nint.Zero || !NativeTaskbar.IsWindow(_taskbarHandle))
         {
             DeskLogger.Info($"TryDock: Taskbar 0x{_taskbarHandle:X} not found or invalid, scheduling retry");
+            ScheduleRetryOrFallback();
+            return;
+        }
+
+        if (!CanDock())
+        {
+            DeskLogger.Info(
+                $"TryDock: not dockable (build={Environment.OSVersion.Version.Build} " +
+                $"classic={NativeTaskbar.IsClassicTaskbar(_taskbarHandle)} " +
+                $"tray=0x{_taskbarHandle:X} secondary={_isSecondary})");
             ScheduleRetryOrFallback();
             return;
         }
