@@ -431,6 +431,7 @@ internal partial class StripWindow : Window
 
         Task.Run(() =>
         {
+            NativeTaskbar.EnsureInteractiveDesktop();
             var layout = _probe.Measure(handle, refreshLayoutElements);
             Dispatcher.BeginInvoke(() => ApplyLayout(handle, taskbarRect, layout, dpi, alignment, centerAligned, tiles, generation));
         });

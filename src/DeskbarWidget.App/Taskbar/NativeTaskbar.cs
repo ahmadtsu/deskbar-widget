@@ -210,6 +210,7 @@ internal static class NativeTaskbar
         var list = new List<nint>();
         try
         {
+            EnsureInteractiveDesktop();
             nint hwnd = nint.Zero;
             while ((hwnd = FindWindowEx(nint.Zero, hwnd, "Shell_SecondaryTrayWnd", null)) != nint.Zero)
             {
