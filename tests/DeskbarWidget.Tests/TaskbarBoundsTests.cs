@@ -335,4 +335,23 @@ public sealed class TaskbarBoundsTests
         Assert.Equal(100, bounds.Value.Width);
         Assert.True(bounds.Value.Left >= 60);
     }
+
+    [Theory]
+    [InlineData("Windows.UI.Composition.DesktopWindowContentBridge", true)]
+    [InlineData("DesktopWindowXamlSource", true)]
+    [InlineData("Windows.UI.Input.InputSite.WindowClass", true)]
+    [InlineData("MSTaskListWClass", false)]
+    [InlineData("ReBarWindow32", false)]
+    [InlineData("Shell_TrayWnd", false)]
+    public void IsModernTaskbarClassName_IdentifiesWin11Classes(string className, bool expected)
+    {
+        Assert.Equal(expected, NativeTaskbar.IsModernTaskbarClassName(className));
+    }
+
+    [Fact]
+    public void IsClassicTaskbar_InvalidHandle_ReturnsFalse()
+    {
+        // An invalid HWND cannot be classic
+        Assert.False(NativeTaskbar.IsClassicTaskbar((nint)(-1)));
+    }
 }
