@@ -26,6 +26,15 @@ internal static class AppSettings
     }
 
     /// <summary>
+    /// Gets or sets whether locked desktops are hidden from the widget strip.
+    /// </summary>
+    public static bool HideLockedDesktops
+    {
+        get => Service.CurrentConfig.HideLockedDesktops;
+        set => Service.Update(cfg => cfg.HideLockedDesktops = value);
+    }
+
+    /// <summary>
     /// Gets or sets whether the application starts automatically with Windows logon.
     /// Defaults to true on fresh install / first run.
     /// </summary>

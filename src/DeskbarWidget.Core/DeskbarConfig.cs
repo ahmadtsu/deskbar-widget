@@ -12,6 +12,11 @@ public sealed class DeskbarConfig
     public bool ShowAllDesktopNames { get; set; } = false;
 
     /// <summary>
+    /// Gets or sets whether locked desktops are hidden from the widget strip.
+    /// </summary>
+    public bool HideLockedDesktops { get; set; } = false;
+
+    /// <summary>
     /// Gets or sets whether the application starts automatically with Windows logon.
     /// </summary>
     public bool AutostartEnabled { get; set; } = true;
@@ -54,6 +59,7 @@ public sealed class DeskbarConfig
         return new DeskbarConfig
         {
             ShowAllDesktopNames = ShowAllDesktopNames,
+            HideLockedDesktops = HideLockedDesktops,
             AutostartEnabled = AutostartEnabled,
             Font = Font,
             DesktopIcons = DesktopIcons is not null ? new Dictionary<string, string>(DesktopIcons) : null,

@@ -88,20 +88,25 @@ internal partial class StripWindow : Window
     private WinEventProc? _winEventCallback;
     private nint _winEventHook;
 
+    private bool _hideLockedDesktops;
+
     public nint TaskbarHandle => _taskbarHandle;
     public bool IsSecondary => _isSecondary;
+    public bool HideLockedDesktops => _hideLockedDesktops;
 
     public StripWindow(
         VirtualDesktopService service,
         ThemeWatcher watcher,
         string alignment,
         bool showAllNames = false,
+        bool hideLockedDesktops = false,
         nint taskbarHandle = 0)
     {
         _service = service;
         _watcher = watcher;
         _alignment = alignment == "Left" ? "Left" : "Right";
         _showAllNames = showAllNames;
+        _hideLockedDesktops = hideLockedDesktops;
         _taskbarHandle = taskbarHandle;
         _isSecondary = taskbarHandle != nint.Zero && NativeTaskbar.IsSecondaryTaskbar(taskbarHandle);
 
@@ -178,6 +183,20 @@ internal partial class StripWindow : Window
                 };
                 _shrinkTimer.Start();
             }
+        });
+    }
+
+    public void SetHideLockedDesktops(bool hideLockedDesktops)
+    {
+        _hideLockedDesktops = hideLockedDesktops;
+        Dispatcher.BeginInvoke(() =>
+        {
+            Strip.SetHideLockedDesktops(hideLockedDesktops);
+            if (_standalone)
+            {
+                Width = Math.Max(240, Strip.ComputeDesiredContentWidth() + 16);
+            }
+            UpdatePosition();
         });
     }
 
@@ -260,7 +279,7 @@ internal partial class StripWindow : Window
         // Theme first: tile measuring reads theme font tokens.
         var theme = _watcher.Current;
         TileTheme.ApplyTo(Strip, theme);
-        Strip.Attach(_service, _watcher, _showAllNames, _alignment);
+        Strip.Attach(_service, _watcher, _showAllNames, _hideLockedDesktops, _alignment);
         DeskLogger.Info($"handle=0x{_handle:X}, tiles={Strip.TileCount}, light={theme.IsLight} accent=#{theme.Accent.R:X2}{theme.Accent.G:X2}{theme.Accent.B:X2} showAllNames={_showAllNames}");
         TryDock();
     }
