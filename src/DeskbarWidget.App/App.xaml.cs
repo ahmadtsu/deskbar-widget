@@ -81,6 +81,7 @@ public partial class App : System.Windows.Application
         ConfigService.Instance.ConfigChanged += OnExternalConfigChanged;
 
         var showAllNames = AppSettings.ShowAllDesktopNames;
+        var hideLockedDesktops = AppSettings.HideLockedDesktops;
 
         // Autostart on startup is the default behavior:
         // Register unless explicitly disabled by user in settings.
@@ -101,7 +102,7 @@ public partial class App : System.Windows.Application
         };
 
         _watcher = new ThemeWatcher();
-        _windowManager = new StripWindowManager(_service, _watcher, alignment, showAllNames);
+        _windowManager = new StripWindowManager(_service, _watcher, alignment, showAllNames, hideLockedDesktops);
 
         DispatcherUnhandledException += (_, args) =>
         {
@@ -126,6 +127,8 @@ public partial class App : System.Windows.Application
                 onExit: Shutdown,
                 showAllNames: showAllNames,
                 onShowAllNamesChanged: OnShowAllNamesChanged,
+                hideLockedDesktops: hideLockedDesktops,
+                onHideLockedDesktopsChanged: OnHideLockedDesktopsChanged,
                 autostartEnabled: autostartEnabled,
                 onAutostartChanged: OnAutostartChanged,
                 getAutostartEnabled: () => _autostartService.CheckIsEnabled(),
@@ -158,7 +161,7 @@ public partial class App : System.Windows.Application
 
     private void OnExternalConfigChanged(object? sender, DeskbarConfig config)
     {
-        DeskLogger.Info($"config file reloaded (showAllNames={config.ShowAllDesktopNames}, autostart={config.AutostartEnabled})");
+        DeskLogger.Info($"config file reloaded (showAllNames={config.ShowAllDesktopNames}, hideLocked={config.HideLockedDesktops}, autostart={config.AutostartEnabled})");
         Dispatcher.InvokeAsync(() =>
         {
             if (config.LockedDesktops is not null && _service is not null)
@@ -169,6 +172,8 @@ public partial class App : System.Windows.Application
 
             _windowManager?.SetShowAllNames(config.ShowAllDesktopNames);
             _tray?.SetShowAllNames(config.ShowAllDesktopNames);
+            _windowManager?.SetHideLockedDesktops(config.HideLockedDesktops);
+            _tray?.SetHideLockedDesktops(config.HideLockedDesktops);
 
             var currentAutostart = _autostartService.CheckIsEnabled();
             if (config.AutostartEnabled != currentAutostart)
@@ -202,6 +207,13 @@ public partial class App : System.Windows.Application
         DeskLogger.Info($"tray: toggle showAllNames={showAllNames}");
         AppSettings.ShowAllDesktopNames = showAllNames;
         _windowManager?.SetShowAllNames(showAllNames);
+    }
+
+    private void OnHideLockedDesktopsChanged(bool hideLocked)
+    {
+        DeskLogger.Info($"tray: toggle hideLockedDesktops={hideLocked}");
+        AppSettings.HideLockedDesktops = hideLocked;
+        _windowManager?.SetHideLockedDesktops(hideLocked);
     }
 
     private void OnAutostartChanged(bool enabled)

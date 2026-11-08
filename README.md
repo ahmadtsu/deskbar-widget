@@ -132,6 +132,7 @@ The configuration file is resolved in the following priority order:
 {
   "Alignment": "Left",
   "ShowAllDesktopNames": false,
+  "HideLockedDesktops": false,
   "AutostartEnabled": true
 }
 ```

@@ -8,13 +8,14 @@ namespace DeskbarWidget.App;
 /// <summary>
 /// System tray icon (WinForms NotifyIcon, no extra packages) using the
 /// bundled eyes.ico. Right-click context menu supports toggling desktop names display,
-/// toggling autostart on Windows startup, or exiting the application.
+/// toggling hidden locked desktops, toggling autostart on Windows startup, or exiting the application.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
     private readonly Forms.NotifyIcon _icon;
     private readonly Forms.ContextMenuStrip _menu;
     private readonly Forms.ToolStripMenuItem _showNamesItem;
+    private readonly Forms.ToolStripMenuItem _hideLockedDesktopsItem;
     private readonly Forms.ToolStripMenuItem _autostartItem;
     private Forms.ToolStripMenuItem? _updateAvailableItem;
     private Forms.ToolStripSeparator? _updateAvailableSeparator;
@@ -26,6 +27,8 @@ internal sealed class TrayIcon : IDisposable
         Action onExit,
         bool showAllNames,
         Action<bool> onShowAllNamesChanged,
+        bool hideLockedDesktops = false,
+        Action<bool>? onHideLockedDesktopsChanged = null,
         bool autostartEnabled = false,
         Action<bool>? onAutostartChanged = null,
         Func<bool>? getAutostartEnabled = null,
@@ -42,6 +45,14 @@ internal sealed class TrayIcon : IDisposable
             ToolTipText = "Show names for every desktop instead of only the active one",
         };
         _showNamesItem.Click += (_, _) => onShowAllNamesChanged(_showNamesItem.Checked);
+
+        _hideLockedDesktopsItem = new Forms.ToolStripMenuItem("Hide locked desktops")
+        {
+            CheckOnClick = true,
+            Checked = hideLockedDesktops,
+            ToolTipText = "Hide locked virtual desktops from the deskbar strip",
+        };
+        _hideLockedDesktopsItem.Click += (_, _) => onHideLockedDesktopsChanged?.Invoke(_hideLockedDesktopsItem.Checked);
 
         _autostartItem = new Forms.ToolStripMenuItem("Autostart on startup")
         {
@@ -86,6 +97,7 @@ internal sealed class TrayIcon : IDisposable
         };
 
         _menu.Items.Add(_showNamesItem);
+        _menu.Items.Add(_hideLockedDesktopsItem);
         _menu.Items.Add(_autostartItem);
         _menu.Items.Add(new Forms.ToolStripSeparator());
         if (onReload is not null)
@@ -176,6 +188,11 @@ internal sealed class TrayIcon : IDisposable
         _showNamesItem.Checked = showAllNames;
     }
 
+    public void SetHideLockedDesktops(bool hideLockedDesktops)
+    {
+        _hideLockedDesktopsItem.Checked = hideLockedDesktops;
+    }
+
     public void SetAutostart(bool autostartEnabled)
     {
         _autostartItem.Checked = autostartEnabled;
@@ -183,6 +200,7 @@ internal sealed class TrayIcon : IDisposable
 
     internal Forms.ToolStripMenuItem AutostartMenuItem => _autostartItem;
     internal Forms.ToolStripMenuItem ShowNamesMenuItem => _showNamesItem;
+    internal Forms.ToolStripMenuItem HideLockedDesktopsMenuItem => _hideLockedDesktopsItem;
 
     public void Dispose()
     {

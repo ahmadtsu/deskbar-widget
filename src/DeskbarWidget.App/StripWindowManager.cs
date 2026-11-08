@@ -20,6 +20,7 @@ internal sealed class StripWindowManager : IDisposable
     private readonly ThemeWatcher _watcher;
     private readonly string _alignment;
     private bool _showAllNames;
+    private bool _hideLockedDesktops;
     private readonly Dictionary<nint, StripWindow> _windows = new();
     private readonly DispatcherTimer _syncTimer;
     private StripWindow? _standaloneWindow;
@@ -29,12 +30,14 @@ internal sealed class StripWindowManager : IDisposable
         VirtualDesktopService service,
         ThemeWatcher watcher,
         string alignment,
-        bool showAllNames = false)
+        bool showAllNames = false,
+        bool hideLockedDesktops = false)
     {
         _service = service;
         _watcher = watcher;
         _alignment = alignment;
         _showAllNames = showAllNames;
+        _hideLockedDesktops = hideLockedDesktops;
 
         _syncTimer = new DispatcherTimer
         {
@@ -74,6 +77,19 @@ internal sealed class StripWindowManager : IDisposable
 
         _standaloneWindow?.SetShowAllNames(showAllNames);
     }
+
+    public void SetHideLockedDesktops(bool hideLockedDesktops)
+    {
+        _hideLockedDesktops = hideLockedDesktops;
+        foreach (var window in _windows.Values.ToList())
+        {
+            window.SetHideLockedDesktops(hideLockedDesktops);
+        }
+
+        _standaloneWindow?.SetHideLockedDesktops(hideLockedDesktops);
+    }
+
+    public bool HideLockedDesktops => _hideLockedDesktops;
 
     public void SyncTaskbars()
     {
@@ -123,7 +139,7 @@ internal sealed class StripWindowManager : IDisposable
             if (!_windows.ContainsKey(handle))
             {
                 DeskLogger.Info($"SyncTaskbars: spawning StripWindow for taskbar 0x{handle:X}");
-                var window = new StripWindow(_service, _watcher, _alignment, _showAllNames, handle);
+                var window = new StripWindow(_service, _watcher, _alignment, _showAllNames, _hideLockedDesktops, handle);
                 var localHandle = handle;
                 window.Closed += (_, _) =>
                 {
@@ -139,7 +155,7 @@ internal sealed class StripWindowManager : IDisposable
         {
             var primary = NativeTaskbar.FindTaskbarHandle();
             DeskLogger.Info($"SyncTaskbars: no taskbars active, creating fallback window (primary=0x{primary:X})");
-            var window = new StripWindow(_service, _watcher, _alignment, _showAllNames, primary);
+            var window = new StripWindow(_service, _watcher, _alignment, _showAllNames, _hideLockedDesktops, primary);
             if (primary != nint.Zero && NativeTaskbar.IsWindow(primary))
             {
                 _windows[primary] = window;

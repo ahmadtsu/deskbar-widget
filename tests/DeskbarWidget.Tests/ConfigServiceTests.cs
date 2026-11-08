@@ -238,27 +238,35 @@ public sealed class ConfigServiceTests : IDisposable
     [Fact]
     public void DeskbarConfig_Clone_ProducesIndependentCopy()
     {
+        var testGuid = Guid.NewGuid();
         var original = new DeskbarConfig
         {
             ShowAllDesktopNames = true,
+            HideLockedDesktops = true,
             AutostartEnabled = false,
             Font = "CustomFont",
             DesktopIcons = new Dictionary<string, string> { { "1", "Icon1" } },
             CustomTheme = "Nord",
             CheckForUpdates = false,
-            SkippedUpdate = "1.0.3"
+            SkippedUpdate = "1.0.3",
+            LockedDesktops = [testGuid],
         };
 
         var clone = original.Clone();
         clone.ShowAllDesktopNames = false;
+        clone.HideLockedDesktops = false;
         clone.DesktopIcons!["1"] = "IconChanged";
         clone.CheckForUpdates = true;
         clone.SkippedUpdate = "1.0.4";
+        clone.LockedDesktops!.Add(Guid.NewGuid());
 
         Assert.True(original.ShowAllDesktopNames);
+        Assert.True(original.HideLockedDesktops);
         Assert.Equal("Icon1", original.DesktopIcons["1"]);
         Assert.False(original.CheckForUpdates);
         Assert.Equal("1.0.3", original.SkippedUpdate);
+        Assert.Single(original.LockedDesktops);
+        Assert.Equal(testGuid, original.LockedDesktops[0]);
     }
 
     [Fact]
@@ -287,6 +295,33 @@ public sealed class ConfigServiceTests : IDisposable
 
         Assert.False(reloaded.CurrentConfig.CheckForUpdates);
         Assert.Equal("1.2.0", reloaded.CurrentConfig.SkippedUpdate);
+    }
+
+    [Fact]
+    public void UpdateSettings_HideLockedDesktops_PersistsCorrectly()
+    {
+        var configPath = Path.Combine(_tempDirectory, "config.json");
+        var service = new ConfigService(
+            customFilePath: configPath,
+            customRegistrySubKey: _testRegistrySubKey,
+            enableWatcher: false);
+
+        Assert.False(service.CurrentConfig.HideLockedDesktops);
+
+        service.Update(cfg =>
+        {
+            cfg.HideLockedDesktops = true;
+        });
+
+        Assert.True(service.CurrentConfig.HideLockedDesktops);
+
+        // Re-read directly from disk in new instance
+        var reloaded = new ConfigService(
+            customFilePath: configPath,
+            customRegistrySubKey: _testRegistrySubKey,
+            enableWatcher: false);
+
+        Assert.True(reloaded.CurrentConfig.HideLockedDesktops);
     }
 
     [Fact]

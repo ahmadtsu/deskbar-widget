@@ -26,6 +26,7 @@ internal partial class DesktopsStrip
     private Themes.ThemeWatcher? _watcher;
     private readonly Dictionary<int, string> _names = new();
     private bool _showAllNames;
+    private bool _hideLockedDesktops;
     private int _currentDesktop = 1;
 
     public DesktopsStrip()
@@ -36,12 +37,14 @@ internal partial class DesktopsStrip
 
     public int TileCount => Tiles.Items.Count;
     public bool ShowAllNames => _showAllNames;
+    public bool HideLockedDesktops => _hideLockedDesktops;
 
-    public void Attach(VirtualDesktopService service, Themes.ThemeWatcher watcher, bool showAllNames = false, string alignment = "Left")
+    public void Attach(VirtualDesktopService service, Themes.ThemeWatcher watcher, bool showAllNames = false, bool hideLockedDesktops = false, string alignment = "Left")
     {
         _service = service;
         _watcher = watcher;
         _showAllNames = showAllNames;
+        _hideLockedDesktops = hideLockedDesktops;
         SetAlignment(alignment);
         var desktops = service.GetDesktops();
         _currentDesktop = service.GetCurrentDesktop().Number;
@@ -74,6 +77,11 @@ internal partial class DesktopsStrip
             _names[d.Number] = name;
             var active = d.Number == current;
             var isLocked = _service?.IsDesktopLocked(d.Number) ?? false;
+            if (_hideLockedDesktops && isLocked)
+            {
+                continue;
+            }
+
             var label = GetTileLabel(d.Number, active);
             var width = GetTileWidth(d.Number, active);
             var toolTipText = string.IsNullOrWhiteSpace(d.Name) ? $"Desktop {d.Number}" : d.Name;
@@ -114,7 +122,8 @@ internal partial class DesktopsStrip
             btn.ContextMenu = BuildTileMenu(btn, number, desktops.Count);
             btn.ContextMenuOpening += (_, _) =>
             {
-                btn.ContextMenu = BuildTileMenu(btn, number, Tiles.Items.Count);
+                var totalDesktops = _service?.GetDesktops().Count ?? desktops.Count;
+                btn.ContextMenu = BuildTileMenu(btn, number, totalDesktops);
             };
             Tiles.Items.Add(btn);
         }
@@ -308,6 +317,25 @@ internal partial class DesktopsStrip
             btn.Content = MakeLabel(label);
             var targetWidth = GetTileWidth(number, isActive);
             AnimateWidth(btn, targetWidth);
+        }
+    }
+
+    public void SetHideLockedDesktops(bool hideLockedDesktops)
+    {
+        if (_hideLockedDesktops == hideLockedDesktops)
+        {
+            return;
+        }
+
+        _hideLockedDesktops = hideLockedDesktops;
+        if (_service != null)
+        {
+            var current = _service.GetCurrentDesktop().Number;
+            if (current > 0)
+            {
+                _currentDesktop = current;
+            }
+            Rebuild(_service.GetDesktops(), _currentDesktop);
         }
     }
 
